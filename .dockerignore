@@ -3,6 +3,7 @@ node_modules
 .env
 accounts.json
 password.json
+bark-settings.json
 *.log
 .DS_Store
 .vscode

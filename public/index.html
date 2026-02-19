@@ -568,6 +568,49 @@
       .projects-grid { grid-template-columns: 1fr; }
       .header-actions { width: 100%; }
     }
+
+    /* Env vars table */
+    .env-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .env-table th { text-align: left; padding: 8px 10px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; }
+    .env-table td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    .env-table td:first-child { font-family: 'SF Mono', monospace; font-size: 12px; color: #111; word-break: break-all; max-width: 200px; }
+    .env-table td:nth-child(2) { font-family: 'SF Mono', monospace; font-size: 12px; color: #6b7280; word-break: break-all; }
+    .env-table .env-actions { white-space: nowrap; }
+    .env-input { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; font-family: 'SF Mono', monospace; outline: none; }
+    .env-input:focus { border-color: #111; }
+
+    /* Usage table */
+    .usage-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .usage-table th { text-align: left; padding: 8px 10px; background: #f7f8fa; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; }
+    .usage-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-variant-numeric: tabular-nums; }
+    .usage-table tr:hover { background: #fafbfc; }
+
+    /* Settings form */
+    .settings-section { margin-bottom: 24px; }
+    .settings-title { font-size: 15px; font-weight: 600; color: #111; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .settings-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+    .settings-row label { font-size: 13px; font-weight: 500; color: #374151; min-width: 120px; flex-shrink: 0; }
+    .toggle { position: relative; width: 40px; height: 22px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: #d1d5db; border-radius: 11px; cursor: pointer; transition: background 0.2s; }
+    .toggle-slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+    .toggle input:checked + .toggle-slider { background: #111; }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(18px); }
+
+    /* Domain inline management */
+    .domain-remove { background: none; border: none; color: #d1d5db; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; transition: color 0.15s; }
+    .domain-remove:hover { color: #dc2626; }
+    .domain-add-row { display: flex; gap: 6px; margin-top: 6px; }
+    .domain-add-input { flex: 1; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; outline: none; }
+    .domain-add-input:focus { border-color: #111; }
+
+    /* Deployment list */
+    .deploy-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; transition: background 0.15s; }
+    .deploy-item:hover { background: #f7f8fa; }
+    .deploy-status { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+    .deploy-status.SUCCESS, .deploy-status.RUNNING { background: #dcfce7; color: #15803d; }
+    .deploy-status.FAILED { background: #fee2e2; color: #b91c1c; }
+    .deploy-status.BUILDING { background: #fef3c7; color: #a16207; }
   </style>
 </head>
 <body>
@@ -657,6 +700,8 @@
             {{ loading ? 'Loading...' : 'Refresh' }}
           </button>
           <button class="btn" @click="showManageModal = true">Accounts</button>
+          <button class="btn" @click="openUsageDetail">Usage</button>
+          <button class="btn" @click="openSettings">Settings</button>
           <button class="btn btn-danger" @click="clearCache">Clear Cache</button>
           <span class="update-time">Updated {{ lastUpdate }}</span>
         </div>
@@ -754,6 +799,8 @@
                       {{ service.status === 'SUSPENDED' ? 'Start' : 'Restart' }}
                     </button>
                     <button class="btn btn-sm" @click="showServiceLogs(account, project, service)">Logs</button>
+                    <button class="btn btn-sm" @click="showBuildLogs(account, project, service)">Build</button>
+                    <button class="btn btn-sm" @click="showEnvVars(account, project, service)">Env</button>
                   </div>
                 </div>
               </div>
@@ -762,12 +809,21 @@
               </div>
 
               <!-- Domains -->
-              <div v-if="getProjectDomains(project).length > 0" class="domain-list">
-                <a v-for="domainInfo in getProjectDomains(project)" :key="domainInfo.domain"
-                  :href="'https://' + domainInfo.domain" target="_blank" class="domain-link">
-                  <span>{{ domainInfo.domain }}</span>
-                  <span v-if="domainInfo.isGenerated" class="domain-auto">auto</span>
-                </a>
+              <div v-if="getProjectDomains(project).length > 0 || isAccountExpanded(account.name)" class="domain-list">
+                <div v-for="domainInfo in getProjectDomains(project)" :key="domainInfo.domain"
+                  style="display: flex; align-items: center; gap: 4px;">
+                  <a :href="'https://' + domainInfo.domain" target="_blank" class="domain-link" style="flex:1;">
+                    <span>{{ domainInfo.domain }}</span>
+                    <span v-if="domainInfo.isGenerated" class="domain-auto">auto</span>
+                  </a>
+                  <button v-if="!domainInfo.isGenerated" class="domain-remove" title="Remove domain"
+                    @click="removeDomain(account, domainInfo)">&times;</button>
+                </div>
+                <div class="domain-add-row">
+                  <input class="domain-add-input" placeholder="Add domain..."
+                    @keyup.enter="addDomain(account, project, $event)">
+                  <button class="btn btn-sm" @click="addDomain(account, project, $event)">Add</button>
+                </div>
               </div>
             </div>
           </div>
@@ -797,6 +853,203 @@
               <div v-if="logsLoading" style="text-align: center; padding: 40px; color: #9ca3af;">Loading logs...</div>
               <pre v-else class="logs-pre">{{ logsContent || 'No logs available' }}</pre>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Env Vars Modal -->
+      <div v-if="showEnvModal" class="modal-overlay" @click.self="showEnvModal = false" style="z-index: 2000;">
+        <div class="modal modal-md">
+          <div class="modal-header">
+            <div class="modal-title">Environment Variables</div>
+            <div class="modal-subtitle">{{ envModalService }}</div>
+          </div>
+          <div class="modal-body">
+            <div v-if="envLoading" style="text-align: center; padding: 24px; color: #9ca3af;">Loading...</div>
+            <div v-else>
+              <table v-if="envVarsList.length > 0" class="env-table">
+                <thead><tr><th>Key</th><th>Value</th><th style="width:80px"></th></tr></thead>
+                <tbody>
+                  <tr v-for="(v, i) in envVarsList" :key="v.key">
+                    <td>{{ v.key }}</td>
+                    <td>
+                      <span v-if="!v.editing">{{ v.masked ? '••••••••' : v.value }}</span>
+                      <input v-else v-model="v.editValue" class="env-input" style="width:100%;">
+                    </td>
+                    <td class="env-actions">
+                      <button v-if="!v.editing" class="btn btn-sm" @click="v.masked = !v.masked">{{ v.masked ? 'Show' : 'Hide' }}</button>
+                      <button v-if="!v.editing" class="btn btn-sm" @click="v.editing = true; v.editValue = v.value">Edit</button>
+                      <button v-if="v.editing" class="btn btn-sm btn-primary" @click="saveEnvVar(v)">Save</button>
+                      <button v-if="v.editing" class="btn btn-sm" @click="v.editing = false">Cancel</button>
+                      <button class="btn btn-sm btn-danger" @click="deleteEnvVar(v.key)">Del</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else style="text-align: center; color: #9ca3af; padding: 16px;">No environment variables</div>
+              <div class="divider"></div>
+              <div style="display:flex; gap:8px;">
+                <input v-model="newEnvKey" class="env-input" placeholder="KEY" style="flex:1;">
+                <input v-model="newEnvValue" class="env-input" placeholder="Value" style="flex:2;">
+                <button class="btn btn-sm btn-primary" @click="addEnvVar">Add</button>
+              </div>
+              <div v-if="envError" class="alert alert-error" style="margin-top:8px;">{{ envError }}</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" style="width:100%;" @click="showEnvModal = false">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Build Logs Modal -->
+      <div v-if="showBuildModal" class="modal-overlay" @click.self="showBuildModal = false" style="z-index: 2000;">
+        <div class="modal modal-lg">
+          <div class="logs-container">
+            <div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb;">
+              <div class="modal-title" style="font-size: 15px;">Build Logs - {{ buildModalService }}</div>
+              <button class="btn btn-sm" @click="showBuildModal = false">Close</button>
+            </div>
+            <div v-if="!buildLogsContent" class="modal-body">
+              <div v-if="buildLoading" style="text-align: center; padding: 24px; color: #9ca3af;">Loading deployments...</div>
+              <div v-else>
+                <div v-if="deploymentsList.length === 0" style="text-align: center; color: #9ca3af; padding: 16px;">No deployments</div>
+                <div v-for="dep in deploymentsList" :key="dep._id" class="deploy-item" @click="fetchBuildLog(dep._id)">
+                  <div>
+                    <span style="font-weight:500;">{{ new Date(dep.createdAt).toLocaleString('zh-CN') }}</span>
+                  </div>
+                  <span class="deploy-status" :class="dep.status">{{ dep.status }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-else>
+              <div class="logs-bar">
+                <button class="btn btn-sm" @click="buildLogsContent = ''">Back to list</button>
+                <span>Deployment: {{ buildLogDeployId }}</span>
+              </div>
+              <div class="logs-body">
+                <div v-if="buildLoading" style="text-align: center; padding: 40px; color: #9ca3af;">Loading build logs...</div>
+                <pre v-else class="logs-pre">{{ buildLogsContent }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Usage Detail Modal -->
+      <div v-if="showUsageModal" class="modal-overlay" @click.self="showUsageModal = false" style="z-index: 2000;">
+        <div class="modal modal-lg">
+          <div class="modal-header">
+            <div class="modal-title">Usage Details</div>
+            <div class="modal-subtitle">{{ usagePeriod }}</div>
+          </div>
+          <div class="modal-body">
+            <div v-if="usageLoading" style="text-align: center; padding: 24px; color: #9ca3af;">Loading usage data...</div>
+            <div v-else>
+              <div v-if="usageData.length === 0" style="text-align: center; color: #9ca3af; padding: 16px;">No usage data</div>
+              <table v-else class="usage-table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Total</th>
+                    <th>CPU</th>
+                    <th>Memory</th>
+                    <th>Network</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in usageData" :key="item.name">
+                    <td style="font-weight:500;">{{ item.name }}</td>
+                    <td>${{ item.total.toFixed(4) }}</td>
+                    <td>${{ item.cpu.toFixed(4) }}</td>
+                    <td>${{ item.memory.toFixed(4) }}</td>
+                    <td>${{ item.network.toFixed(4) }}</td>
+                  </tr>
+                  <tr style="font-weight:700; border-top: 2px solid #e5e7eb;">
+                    <td>Total</td>
+                    <td>${{ usageTotalCost.toFixed(4) }}</td>
+                    <td>${{ usageTotalCPU.toFixed(4) }}</td>
+                    <td>${{ usageTotalMemory.toFixed(4) }}</td>
+                    <td>${{ usageTotalNetwork.toFixed(4) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" style="width:100%;" @click="showUsageModal = false">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Modal -->
+      <div v-if="showSettingsModal" class="modal-overlay" @mousedown.self="showSettingsModal = false" style="z-index: 2000;">
+        <div class="modal modal-md">
+          <div class="modal-header">
+            <div class="modal-title">Settings</div>
+          </div>
+          <div class="modal-body">
+            <div class="settings-section">
+              <div class="settings-title">Bark Push Notifications</div>
+              <div class="settings-row">
+                <label>Enable</label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="barkSettings.enabled">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bark Server URL</label>
+                <input v-model="barkSettings.url" class="form-input" placeholder="https://api.day.app">
+                <div class="form-hint">Default public server: https://api.day.app</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Device Key</label>
+                <input v-model="barkSettings.deviceKey" class="form-input" placeholder="Your Bark device key">
+                <div class="form-hint">Get it from Bark iOS app</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Check Interval (minutes)</label>
+                <input v-model.number="barkSettings.interval" type="number" class="form-input" min="1" max="60" style="width:120px;">
+              </div>
+              <div class="divider"></div>
+              <div class="settings-title">Notification Rules</div>
+              <div class="settings-row">
+                <label>Service Down</label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="barkSettings.notifyServiceDown">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <label>Service Recovery</label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="barkSettings.notifyServiceRecovery">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <label>Low Balance</label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="barkSettings.notifyBalanceLow">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div v-if="barkSettings.notifyBalanceLow" class="form-group">
+                <label class="form-label">Balance Threshold (cents)</label>
+                <input v-model.number="barkSettings.balanceThreshold" type="number" class="form-input" min="0" style="width:120px;">
+                <div class="form-hint">Alert when balance drops below ${{ (barkSettings.balanceThreshold / 100).toFixed(2) }}</div>
+              </div>
+            </div>
+            <div v-if="settingsError" class="alert alert-error">{{ settingsError }}</div>
+            <div v-if="settingsSuccess" class="alert alert-success">{{ settingsSuccess }}</div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-primary" style="flex:1;" @click="saveBarkSettings">Save</button>
+              <button class="btn" @click="testBark" :disabled="barkTesting">{{ barkTesting ? 'Sending...' : 'Test' }}</button>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" style="width:100%; margin-top:8px;" @click="showSettingsModal = false">Close</button>
           </div>
         </div>
       </div>
@@ -935,7 +1188,35 @@
           logsLoading: false,
           currentVersion: '...',
           latestVersion: '...',
-          versionLoading: true
+          versionLoading: true,
+          // Env vars
+          showEnvModal: false,
+          envModalService: '',
+          envVarsList: [],
+          envLoading: false,
+          envError: '',
+          newEnvKey: '',
+          newEnvValue: '',
+          envContext: {},
+          // Build logs
+          showBuildModal: false,
+          buildModalService: '',
+          deploymentsList: [],
+          buildLogsContent: '',
+          buildLogDeployId: '',
+          buildLoading: false,
+          buildContext: {},
+          // Usage detail
+          showUsageModal: false,
+          usageLoading: false,
+          usageData: [],
+          usagePeriod: '',
+          // Settings
+          showSettingsModal: false,
+          barkSettings: { url: '', deviceKey: '', enabled: false, interval: 5, notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 },
+          settingsError: '',
+          settingsSuccess: '',
+          barkTesting: false
         };
       },
       async mounted() {
@@ -1031,7 +1312,11 @@
             }
           }
           return total;
-        }
+        },
+        usageTotalCost() { return this.usageData.reduce((s, i) => s + i.total, 0); },
+        usageTotalCPU() { return this.usageData.reduce((s, i) => s + i.cpu, 0); },
+        usageTotalMemory() { return this.usageData.reduce((s, i) => s + i.memory, 0); },
+        usageTotalNetwork() { return this.usageData.reduce((s, i) => s + i.network, 0); }
       },
       methods: {
         getBadgeClass(status) {
@@ -1405,7 +1690,7 @@
             project.services.forEach(service => {
               if (service.domains && service.domains.length > 0) {
                 service.domains.forEach(d => {
-                  if (d.domain) domains.push({ domain: d.domain, isGenerated: d.isGenerated || false });
+                  if (d.domain) domains.push({ _id: d._id, domain: d.domain, isGenerated: d.isGenerated || false });
                 });
               }
             });
@@ -1487,6 +1772,261 @@
             else if (latest < current) return false;
           }
           return false;
+        },
+
+        // ============ 域名管理 ============
+        getAccountToken(accountName) {
+          const allAccounts = [...this.envAccounts, ...this.managedAccounts];
+          const acc = allAccounts.find(a => a.name === accountName);
+          return acc?.token;
+        },
+        async addDomain(account, project, event) {
+          let input;
+          if (event.target.tagName === 'INPUT') {
+            input = event.target;
+          } else {
+            input = event.target.previousElementSibling;
+          }
+          const domain = input?.value?.trim();
+          if (!domain) return;
+          const token = this.getAccountToken(account.name);
+          if (!token) { alert('Cannot get account token'); return; }
+          const environmentId = project.environments?.[0]?._id;
+          if (!environmentId) { alert('Cannot get environment ID'); return; }
+          // Find the first service in the project to bind domain to
+          const service = project.services?.[0];
+          if (!service) { alert('No service in project'); return; }
+          try {
+            const response = await fetch('/api/service/domain/add', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ token, serviceId: service._id, environmentId, domain })
+            });
+            const result = await response.json();
+            if (result.success) {
+              input.value = '';
+              this.fetchData();
+            } else {
+              alert('Failed: ' + (result.error || result.details));
+            }
+          } catch (error) { alert('Error: ' + error.message); }
+        },
+        async removeDomain(account, domainInfo) {
+          if (!domainInfo._id) { alert('Cannot identify domain'); return; }
+          if (!confirm(`Remove domain "${domainInfo.domain}"?`)) return;
+          const token = this.getAccountToken(account.name);
+          if (!token) { alert('Cannot get account token'); return; }
+          try {
+            const response = await fetch('/api/service/domain/remove', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ token, domainId: domainInfo._id })
+            });
+            const result = await response.json();
+            if (result.success) { this.fetchData(); }
+            else { alert('Failed: ' + (result.error || result.details)); }
+          } catch (error) { alert('Error: ' + error.message); }
+        },
+
+        // ============ 环境变量 ============
+        async showEnvVars(account, project, service) {
+          const token = this.getAccountToken(account.name);
+          if (!token) { alert('Cannot get account token'); return; }
+          const environmentId = project.environments?.[0]?._id;
+          if (!environmentId) { alert('Cannot get environment ID'); return; }
+          this.envContext = { token, serviceId: service._id, environmentId };
+          this.envModalService = `${service.name} (${project.name})`;
+          this.envVarsList = [];
+          this.envError = '';
+          this.newEnvKey = '';
+          this.newEnvValue = '';
+          this.envLoading = true;
+          this.showEnvModal = true;
+          try {
+            const response = await fetch('/api/service/env/list', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ token, serviceId: service._id, environmentId })
+            });
+            const result = await response.json();
+            if (result.success) {
+              this.envVarsList = (result.variables || []).map(v => ({ ...v, masked: true, editing: false, editValue: '' }));
+            } else {
+              this.envError = result.error || 'Failed to load';
+            }
+          } catch (error) { this.envError = error.message; }
+          finally { this.envLoading = false; }
+        },
+        async saveEnvVar(v) {
+          try {
+            const response = await fetch('/api/service/env/update', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ ...this.envContext, key: v.key, value: v.editValue })
+            });
+            const result = await response.json();
+            if (result.success) { v.value = v.editValue; v.editing = false; }
+            else { this.envError = result.error; }
+          } catch (error) { this.envError = error.message; }
+        },
+        async deleteEnvVar(key) {
+          if (!confirm(`Delete env var "${key}"?`)) return;
+          try {
+            const response = await fetch('/api/service/env/delete', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ ...this.envContext, key })
+            });
+            const result = await response.json();
+            if (result.success) { this.envVarsList = this.envVarsList.filter(v => v.key !== key); }
+            else { this.envError = result.error; }
+          } catch (error) { this.envError = error.message; }
+        },
+        async addEnvVar() {
+          if (!this.newEnvKey.trim()) { this.envError = 'Key is required'; return; }
+          this.envError = '';
+          try {
+            const response = await fetch('/api/service/env/update', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ ...this.envContext, key: this.newEnvKey.trim(), value: this.newEnvValue })
+            });
+            const result = await response.json();
+            if (result.success) {
+              this.envVarsList.push({ key: this.newEnvKey.trim(), value: this.newEnvValue, masked: true, editing: false, editValue: '' });
+              this.newEnvKey = '';
+              this.newEnvValue = '';
+            } else { this.envError = result.error; }
+          } catch (error) { this.envError = error.message; }
+        },
+
+        // ============ 构建日志 ============
+        async showBuildLogs(account, project, service) {
+          const token = this.getAccountToken(account.name);
+          if (!token) { alert('Cannot get account token'); return; }
+          const environmentId = project.environments?.[0]?._id;
+          if (!environmentId) { alert('Cannot get environment ID'); return; }
+          this.buildContext = { token, serviceId: service._id, environmentId };
+          this.buildModalService = `${service.name} (${project.name})`;
+          this.deploymentsList = [];
+          this.buildLogsContent = '';
+          this.buildLoading = true;
+          this.showBuildModal = true;
+          try {
+            const response = await fetch('/api/service/deployments', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ token, serviceId: service._id, environmentId })
+            });
+            const result = await response.json();
+            if (result.success) { this.deploymentsList = result.deployments || []; }
+            else { alert(result.error); }
+          } catch (error) { alert(error.message); }
+          finally { this.buildLoading = false; }
+        },
+        async fetchBuildLog(deploymentId) {
+          this.buildLogDeployId = deploymentId.substring(0, 12) + '...';
+          this.buildLogsContent = ' '; // placeholder to switch view
+          this.buildLoading = true;
+          try {
+            const response = await fetch('/api/service/build-logs', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ token: this.buildContext.token, deploymentId })
+            });
+            const result = await response.json();
+            if (result.success && result.logs) {
+              this.buildLogsContent = result.logs.map(l => '[' + new Date(l.timestamp).toLocaleString('zh-CN') + '] ' + l.message).join('\n') || 'No build logs';
+            } else {
+              this.buildLogsContent = 'Failed: ' + (result.error || 'Unknown error');
+            }
+          } catch (error) { this.buildLogsContent = 'Error: ' + error.message; }
+          finally { this.buildLoading = false; }
+        },
+
+        // ============ 用量明细 ============
+        async openUsageDetail() {
+          this.usageData = [];
+          this.usagePeriod = '';
+          this.usageLoading = true;
+          this.showUsageModal = true;
+          // Find first account with user data
+          const allAccounts = [...this.envAccounts, ...this.managedAccounts];
+          const accountsWithData = this.accounts.filter(a => a.data?._id);
+          if (accountsWithData.length === 0) {
+            this.usageLoading = false;
+            return;
+          }
+          try {
+            const allUsage = [];
+            for (const acc of accountsWithData) {
+              const token = allAccounts.find(a => a.name === acc.name)?.token;
+              if (!token) continue;
+              const response = await fetch('/api/usage/detail', {
+                method: 'POST', headers: this.getAuthHeaders(),
+                body: JSON.stringify({ token, userId: acc.data._id })
+              });
+              const result = await response.json();
+              if (result.success) {
+                this.usagePeriod = result.period;
+                const cpuMap = {};
+                const memMap = {};
+                const netMap = {};
+                (result.usageByType?.CPU || []).forEach(s => { cpuMap[s.name] = s.total; });
+                (result.usageByType?.MEMORY || []).forEach(s => { memMap[s.name] = s.total; });
+                (result.usageByType?.NETWORK || []).forEach(s => { netMap[s.name] = s.total; });
+                (result.serviceUsage || []).forEach(s => {
+                  allUsage.push({
+                    name: `${acc.name} / ${s.name}`,
+                    total: s.total,
+                    cpu: cpuMap[s.name] || 0,
+                    memory: memMap[s.name] || 0,
+                    network: netMap[s.name] || 0
+                  });
+                });
+              }
+            }
+            this.usageData = allUsage.sort((a, b) => b.total - a.total);
+          } catch (error) { console.error('Usage error:', error); }
+          finally { this.usageLoading = false; }
+        },
+
+        // ============ Settings ============
+        async openSettings() {
+          this.settingsError = '';
+          this.settingsSuccess = '';
+          try {
+            const response = await fetch('/api/settings/bark', { headers: this.getAuthHeaders() });
+            if (response.ok) {
+              const data = await response.json();
+              this.barkSettings = { ...this.barkSettings, ...data };
+            }
+          } catch (e) { /* use defaults */ }
+          this.showSettingsModal = true;
+        },
+        async saveBarkSettings() {
+          this.settingsError = '';
+          this.settingsSuccess = '';
+          try {
+            const response = await fetch('/api/settings/bark', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify(this.barkSettings)
+            });
+            const result = await response.json();
+            if (result.success) { this.settingsSuccess = 'Settings saved'; setTimeout(() => { this.settingsSuccess = ''; }, 2000); }
+            else { this.settingsError = result.error; }
+          } catch (error) { this.settingsError = error.message; }
+        },
+        async testBark() {
+          if (!this.barkSettings.url || !this.barkSettings.deviceKey) {
+            this.settingsError = 'Please fill in URL and Device Key first';
+            return;
+          }
+          this.barkTesting = true;
+          this.settingsError = '';
+          this.settingsSuccess = '';
+          try {
+            const response = await fetch('/api/bark/test', {
+              method: 'POST', headers: this.getAuthHeaders(),
+              body: JSON.stringify({ url: this.barkSettings.url, deviceKey: this.barkSettings.deviceKey })
+            });
+            const result = await response.json();
+            if (result.success) { this.settingsSuccess = result.message; }
+            else { this.settingsError = result.error; }
+          } catch (error) { this.settingsError = error.message; }
+          finally { this.barkTesting = false; }
         }
       }
     }).mount('#app');

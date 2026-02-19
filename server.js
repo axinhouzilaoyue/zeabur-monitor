@@ -68,6 +68,7 @@ app.use(express.static('public'));
 // 数据文件路径
 const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
 const PASSWORD_FILE = path.join(__dirname, 'password.json');
+const BARK_SETTINGS_FILE = path.join(__dirname, 'bark-settings.json');
 
 // 读取服务器存储的账号
 function loadServerAccounts() {
@@ -158,9 +159,10 @@ function saveAdminPassword(password) {
 }
 
 // Zeabur GraphQL 查询
-async function queryZeabur(token, query) {
+async function queryZeabur(token, query, variables = null) {
   return new Promise((resolve, reject) => {
-    const data = JSON.stringify({ query });
+    const payload = variables ? { query, variables } : { query };
+    const data = JSON.stringify(payload);
     const options = {
       hostname: 'api.zeabur.com',
       path: '/graphql',
@@ -233,6 +235,7 @@ async function fetchAccountData(token) {
                 memory
               }
               domains {
+                _id
                 domain
                 isGenerated
               }
@@ -826,6 +829,396 @@ app.get('/api/latest-version', async (req, res) => {
   }
 });
 
+// ============ Bark 通知系统 ============
+
+function loadBarkSettings() {
+  try {
+    if (fs.existsSync(BARK_SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(BARK_SETTINGS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('❌ 读取 Bark 配置失败:', e.message);
+  }
+  return { url: '', deviceKey: '', enabled: false, interval: 5, notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 };
+}
+
+function saveBarkSettings(settings) {
+  try {
+    fs.writeFileSync(BARK_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('❌ 保存 Bark 配置失败:', e.message);
+    return false;
+  }
+}
+
+async function sendBarkNotification(title, body, group = 'zeabur-monitor') {
+  const settings = loadBarkSettings();
+  if (!settings.enabled || !settings.url || !settings.deviceKey) return false;
+
+  const url = settings.url.replace(/\/+$/, '');
+  const pushUrl = `${url}/push`;
+
+  return new Promise((resolve) => {
+    const payload = JSON.stringify({
+      device_key: settings.deviceKey,
+      title, body, group,
+      icon: 'https://zeabur.com/favicon.ico',
+      level: 'timeSensitive'
+    });
+
+    const urlObj = new URL(pushUrl);
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(payload) },
+      timeout: 10000
+    };
+
+    const transport = urlObj.protocol === 'https:' ? https : require('http');
+    const req = transport.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          resolve(result.code === 200);
+        } catch { resolve(false); }
+      });
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+// Bark 监控状态
+let previousServiceStates = new Map();
+let barkMonitorInterval = null;
+
+async function runBarkMonitor() {
+  const settings = loadBarkSettings();
+  if (!settings.enabled) return;
+
+  try {
+    const serverAccounts = loadServerAccounts();
+    const envAccounts = getEnvAccounts();
+    const allAccounts = [...envAccounts, ...serverAccounts];
+    if (allAccounts.length === 0) return;
+
+    for (const account of allAccounts) {
+      try {
+        const { user, projects } = await fetchAccountData(account.token);
+
+        // 检查余额
+        if (settings.notifyBalanceLow && user._id) {
+          try {
+            const usageData = await fetchUsageData(account.token, user._id, projects);
+            const remainingCents = Math.round(usageData.freeQuotaRemaining * 100);
+            const balanceKey = `balance_${account.name}`;
+            const prevBalance = previousServiceStates.get(balanceKey);
+            if (remainingCents <= settings.balanceThreshold && prevBalance !== 'low') {
+              await sendBarkNotification('Zeabur Balance Low', `Account "${account.name}" balance is $${(remainingCents / 100).toFixed(2)}, below threshold $${(settings.balanceThreshold / 100).toFixed(2)}`);
+              previousServiceStates.set(balanceKey, 'low');
+            } else if (remainingCents > settings.balanceThreshold) {
+              previousServiceStates.set(balanceKey, 'ok');
+            }
+          } catch (e) { /* ignore usage fetch errors */ }
+        }
+
+        // 检查服务状态
+        for (const project of projects) {
+          for (const service of (project.services || [])) {
+            const stateKey = `service_${account.name}_${project._id}_${service._id}`;
+            const prevStatus = previousServiceStates.get(stateKey);
+
+            if (prevStatus && prevStatus !== service.status) {
+              if (settings.notifyServiceDown && prevStatus === 'RUNNING' && service.status !== 'RUNNING') {
+                await sendBarkNotification('Service Down', `"${service.name}" in project "${project.name}" (${account.name}) is now ${service.status}`);
+              }
+              if (settings.notifyServiceRecovery && prevStatus !== 'RUNNING' && service.status === 'RUNNING') {
+                await sendBarkNotification('Service Recovered', `"${service.name}" in project "${project.name}" (${account.name}) is now RUNNING`);
+              }
+            }
+            previousServiceStates.set(stateKey, service.status);
+          }
+        }
+      } catch (e) {
+        console.log(`⚠️ Bark 监控 [${account.name}] 失败:`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error('❌ Bark 监控异常:', e.message);
+  }
+}
+
+function startBarkMonitor() {
+  if (barkMonitorInterval) clearInterval(barkMonitorInterval);
+  const settings = loadBarkSettings();
+  if (settings.enabled && settings.url && settings.deviceKey) {
+    const intervalMs = (settings.interval || 5) * 60 * 1000;
+    barkMonitorInterval = setInterval(runBarkMonitor, intervalMs);
+    // 首次延迟30秒执行，让服务完全启动
+    setTimeout(runBarkMonitor, 30000);
+    console.log(`🔔 Bark 通知已启用 (每${settings.interval}分钟检查)`);
+  }
+}
+
+// ============ 域名管理 API ============
+
+app.post('/api/service/domain/add', requireAuth, async (req, res) => {
+  const { token, serviceId, environmentId, domain } = req.body;
+  if (!token || !serviceId || !environmentId || !domain) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+  try {
+    const query = `mutation($serviceID: ObjectID!, $environmentID: ObjectID!, $domain: String!) {
+      addDomain(serviceID: $serviceID, environmentID: $environmentID, domain: $domain) { _id domain isGenerated }
+    }`;
+    const result = await queryZeabur(token, query, { serviceID: serviceId, environmentID: environmentId, domain });
+    if (result.data?.addDomain) {
+      res.json({ success: true, domain: result.data.addDomain });
+    } else {
+      res.status(400).json({ error: '添加域名失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
+    }
+  } catch (error) {
+    res.status(500).json({ error: '添加域名失败: ' + error.message });
+  }
+});
+
+app.post('/api/service/domain/remove', requireAuth, async (req, res) => {
+  const { token, domainId } = req.body;
+  if (!token || !domainId) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+  try {
+    const mutation = `mutation { removeDomain(_id: "${domainId}") }`;
+    const result = await queryZeabur(token, mutation);
+    if (result.data) {
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: '删除域名失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
+    }
+  } catch (error) {
+    res.status(500).json({ error: '删除域名失败: ' + error.message });
+  }
+});
+
+// ============ 环境变量管理 API ============
+
+app.post('/api/service/env/list', requireAuth, async (req, res) => {
+  const { token, serviceId, environmentId } = req.body;
+  if (!token || !serviceId || !environmentId) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+  try {
+    const query = `query($serviceID: ObjectID!, $environmentID: ObjectID!) {
+      environmentVariables(serviceID: $serviceID, environmentID: $environmentID) { key value }
+    }`;
+    const result = await queryZeabur(token, query, { serviceID: serviceId, environmentID: environmentId });
+    if (result.data?.environmentVariables) {
+      res.json({ success: true, variables: result.data.environmentVariables });
+    } else {
+      res.status(400).json({ error: '获取环境变量失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
+    }
+  } catch (error) {
+    res.status(500).json({ error: '获取环境变量失败: ' + error.message });
+  }
+});
+
+app.post('/api/service/env/update', requireAuth, async (req, res) => {
+  const { token, serviceId, environmentId, key, value } = req.body;
+  if (!token || !serviceId || !environmentId || !key) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+  try {
+    const query = `mutation($serviceID: ObjectID!, $environmentID: ObjectID!, $key: String!, $value: String!) {
+      updateSingleEnvironmentVariable(serviceID: $serviceID, environmentID: $environmentID, key: $key, value: $value) { key value }
+    }`;
+    const result = await queryZeabur(token, query, { serviceID: serviceId, environmentID: environmentId, key, value: value || '' });
+    if (result.data?.updateSingleEnvironmentVariable) {
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: '更新环境变量失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
+    }
+  } catch (error) {
+    res.status(500).json({ error: '更新环境变量失败: ' + error.message });
+  }
+});
+
+app.post('/api/service/env/delete', requireAuth, async (req, res) => {
+  const { token, serviceId, environmentId, key } = req.body;
+  if (!token || !serviceId || !environmentId || !key) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+  try {
+    const query = `mutation($serviceID: ObjectID!, $environmentID: ObjectID!, $key: String!) {
+      deleteSingleEnvironmentVariable(serviceID: $serviceID, environmentID: $environmentID, key: $key)
+    }`;
+    const result = await queryZeabur(token, query, { serviceID: serviceId, environmentID: environmentId, key });
+    if (result.data) {
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: '删除环境变量失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
+    }
+  } catch (error) {
+    res.status(500).json({ error: '删除环境变量失败: ' + error.message });
+  }
+});
+
+// ============ 部署和构建日志 API ============
+
+app.post('/api/service/deployments', requireAuth, async (req, res) => {
+  const { token, serviceId, environmentId } = req.body;
+  if (!token || !serviceId || !environmentId) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+  try {
+    const query = `query($serviceID: ObjectID!, $environmentID: ObjectID!) {
+      deployments(serviceID: $serviceID, environmentID: $environmentID, perPage: 10) {
+        edges { node { _id status createdAt } }
+      }
+    }`;
+    const result = await queryZeabur(token, query, { serviceID: serviceId, environmentID: environmentId });
+    if (result.data?.deployments?.edges) {
+      const deployments = result.data.deployments.edges.map(e => e.node);
+      res.json({ success: true, deployments });
+    } else {
+      res.status(400).json({ error: '获取部署列表失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
+    }
+  } catch (error) {
+    res.status(500).json({ error: '获取部署列表失败: ' + error.message });
+  }
+});
+
+app.post('/api/service/build-logs', requireAuth, async (req, res) => {
+  const { token, deploymentId } = req.body;
+  if (!token || !deploymentId) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+  try {
+    const query = `query($deploymentID: ObjectID!) {
+      buildLogs(deploymentID: $deploymentID) { message timestamp }
+    }`;
+    const result = await queryZeabur(token, query, { deploymentID: deploymentId });
+    if (result.data?.buildLogs) {
+      res.json({ success: true, logs: result.data.buildLogs });
+    } else {
+      res.status(400).json({ error: '获取构建日志失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
+    }
+  } catch (error) {
+    res.status(500).json({ error: '获取构建日志失败: ' + error.message });
+  }
+});
+
+// ============ 用量明细 API ============
+
+app.post('/api/usage/detail', requireAuth, async (req, res) => {
+  const { token, userId } = req.body;
+  if (!token || !userId) {
+    return res.status(400).json({ error: '缺少必要参数' });
+  }
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const fromDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const toDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
+  try {
+    const queryStr = `query($from: String!, $to: String!, $userID: ObjectID!, $groupByEntity: GroupByEntity, $groupByTime: GroupByTime, $groupByType: GroupByType) {
+      usages(from: $from, to: $to, userID: $userID, groupByEntity: $groupByEntity, groupByTime: $groupByTime, groupByType: $groupByType) {
+        categories
+        data { id name groupByEntity usageOfEntity }
+      }
+    }`;
+
+    const types = ['CPU', 'MEMORY', 'NETWORK'];
+    const results = await Promise.all(types.map(type =>
+      queryZeabur(token, queryStr, {
+        from: fromDate, to: toDate, userID: userId,
+        groupByEntity: 'SERVICE', groupByTime: 'DAY', groupByType: type
+      })
+    ));
+
+    const usageByType = {};
+    types.forEach((type, i) => {
+      const data = results[i]?.data?.usages?.data || [];
+      usageByType[type] = data.map(item => ({
+        id: item.id,
+        name: item.name,
+        total: item.usageOfEntity.reduce((a, b) => a + b, 0)
+      }));
+    });
+
+    // 也获取总费用按服务分
+    const totalResult = await queryZeabur(token, queryStr, {
+      from: fromDate, to: toDate, userID: userId,
+      groupByEntity: 'SERVICE', groupByTime: 'DAY', groupByType: 'ALL'
+    });
+
+    const serviceUsage = (totalResult?.data?.usages?.data || []).map(item => ({
+      id: item.id,
+      name: item.name,
+      total: item.usageOfEntity.reduce((a, b) => a + b, 0),
+      daily: item.usageOfEntity
+    }));
+
+    res.json({
+      success: true,
+      categories: totalResult?.data?.usages?.categories || [],
+      serviceUsage,
+      usageByType,
+      period: `${fromDate} ~ ${toDate}`
+    });
+  } catch (error) {
+    res.status(500).json({ error: '获取用量明细失败: ' + error.message });
+  }
+});
+
+// ============ Bark 设置 API ============
+
+app.get('/api/settings/bark', requireAuth, (req, res) => {
+  const settings = loadBarkSettings();
+  res.json(settings);
+});
+
+app.post('/api/settings/bark', requireAuth, (req, res) => {
+  const settings = req.body;
+  if (saveBarkSettings(settings)) {
+    startBarkMonitor();
+    res.json({ success: true });
+  } else {
+    res.status(500).json({ error: '保存失败' });
+  }
+});
+
+app.post('/api/bark/test', requireAuth, async (req, res) => {
+  const { url, deviceKey } = req.body;
+  if (!url || !deviceKey) {
+    return res.status(400).json({ error: '请填写 Bark URL 和 Device Key' });
+  }
+  // 临时覆盖设置发送测试
+  const origSettings = loadBarkSettings();
+  const testSettings = { ...origSettings, url, deviceKey, enabled: true };
+  saveBarkSettings(testSettings);
+  const success = await sendBarkNotification('Zeabur Monitor', 'Bark notification test successful!', 'test');
+  // 恢复原设置（如果测试用了不同配置）
+  if (!origSettings.url) {
+    saveBarkSettings(testSettings); // 保留新设置
+  }
+  if (success) {
+    res.json({ success: true, message: '测试通知已发送' });
+  } else {
+    res.status(400).json({ error: '发送失败，请检查 URL 和 Device Key' });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✨ Zeabur Monitor 运行在 http://0.0.0.0:${PORT}`);
   
@@ -853,4 +1246,7 @@ app.listen(PORT, '0.0.0.0', () => {
   } else {
     console.log(`📊 准备就绪，等待添加账号...`);
   }
+
+  // 启动 Bark 监控
+  startBarkMonitor();
 });
