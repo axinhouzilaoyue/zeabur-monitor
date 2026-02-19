@@ -590,15 +590,16 @@ app.post('/api/verify-password', (req, res) => {
   }
 });
 
-// 获取所有账号（服务器存储 + 环境变量）
+// 获取所有账号（服务器存储 + 环境变量，分开返回）
 app.get('/api/server-accounts', requireAuth, async (req, res) => {
   const serverAccounts = loadServerAccounts();
   const envAccounts = getEnvAccounts();
-  
-  // 合并账号，环境变量账号优先
-  const allAccounts = [...envAccounts, ...serverAccounts];
-  console.log(`📋 返回 ${allAccounts.length} 个账号 (环境变量: ${envAccounts.length}, 服务器: ${serverAccounts.length})`);
-  res.json(allAccounts);
+
+  console.log(`📋 返回账号 (环境变量: ${envAccounts.length}, 服务器: ${serverAccounts.length})`);
+  res.json({
+    envAccounts: envAccounts,
+    serverAccounts: serverAccounts
+  });
 });
 
 // 保存账号到服务器
@@ -746,9 +747,11 @@ app.post('/api/project/rename', requireAuth, async (req, res) => {
   }
   
   try {
-    // 从服务器存储中获取账号token
+    // 从服务器存储和环境变量中获取账号token
     const serverAccounts = loadServerAccounts();
-    const account = serverAccounts.find(acc => (acc.id || acc.name) === accountId);
+    const envAccounts = getEnvAccounts();
+    const allAccounts = [...envAccounts, ...serverAccounts];
+    const account = allAccounts.find(acc => (acc.id || acc.name) === accountId);
     
     if (!account || !account.token) {
       return res.status(404).json({ error: '未找到账号或token' });

@@ -808,7 +808,23 @@
             <div class="modal-title">Account Management</div>
           </div>
           <div class="modal-body">
-            <!-- Existing accounts -->
+            <!-- Env accounts (read-only) -->
+            <div v-if="envAccounts.length > 0" style="margin-bottom: 16px;">
+              <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">Environment Accounts</div>
+              <div class="alert alert-info" style="margin-bottom: 8px;">
+                These accounts are from server environment variables and cannot be modified here.
+              </div>
+              <div v-for="(account, index) in envAccounts" :key="'env-' + index" class="account-list-item">
+                <div>
+                  <div class="account-list-name">{{ account.name }}</div>
+                  <div class="account-list-email">Environment variable</div>
+                </div>
+                <span class="account-list-tag">ENV</span>
+              </div>
+            </div>
+
+            <!-- Server-stored accounts (manageable) -->
+            <div v-if="envAccounts.length > 0 && managedAccounts.length > 0" style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">Managed Accounts</div>
             <div v-for="(account, index) in managedAccounts" :key="'local-' + index" class="account-list-item">
               <div>
                 <div class="account-list-name">{{ account.name }}</div>
@@ -817,20 +833,7 @@
               <button class="btn btn-sm btn-danger" @click="removeAccount(index)">Remove</button>
             </div>
 
-            <div v-if="managedAccounts.length === 0 && accounts.length > 0">
-              <div class="alert alert-info" style="margin-bottom: 12px;">
-                The accounts below are from server config (.env) and cannot be removed here.
-              </div>
-              <div v-for="account in accounts" :key="'server-' + account.name" class="account-list-item">
-                <div>
-                  <div class="account-list-name">{{ account.name }}</div>
-                  <div class="account-list-email">{{ account.data?.email || account.data?.username || 'Server config' }}</div>
-                </div>
-                <span class="account-list-tag">Server</span>
-              </div>
-            </div>
-
-            <div v-if="managedAccounts.length === 0 && accounts.length === 0"
+            <div v-if="managedAccounts.length === 0 && envAccounts.length === 0"
               style="text-align: center; color: #9ca3af; padding: 24px 0;">
               No accounts yet
             </div>
@@ -902,6 +905,7 @@
           showAddModal: false,
           showManageModal: false,
           managedAccounts: [],
+          envAccounts: [],
           projectCosts: {},
           newAccount: { name: '', token: '', balance: '' },
           addingAccount: false,
@@ -1110,9 +1114,14 @@
           try {
             const response = await fetch('/api/server-accounts', { headers: this.getAuthHeaders() });
             if (response.status === 401) { this.handleUnauthorized(); return; }
-            const accounts = await response.json();
-            if (accounts && accounts.length > 0) {
-              this.managedAccounts = accounts;
+            const data = await response.json();
+            if (data && data.envAccounts) {
+              this.envAccounts = data.envAccounts || [];
+              this.managedAccounts = data.serverAccounts || [];
+            } else if (Array.isArray(data) && data.length > 0) {
+              // Backward compatibility: old format returned a flat array
+              this.managedAccounts = data;
+              this.envAccounts = [];
             }
           } catch (error) {
             console.log('Failed to load accounts:', error.message);
@@ -1137,8 +1146,9 @@
         async fetchData() {
           this.loading = true;
           try {
-            if (this.managedAccounts.length > 0) {
-              const accountsWithoutManualBalance = this.managedAccounts.map(acc => ({ ...acc, balance: null }));
+            const allAccounts = [...this.envAccounts, ...this.managedAccounts];
+            if (allAccounts.length > 0) {
+              const accountsWithoutManualBalance = allAccounts.map(acc => ({ ...acc, balance: null }));
               const [accountsRes, projectsRes] = await Promise.all([
                 fetch('/api/temp-accounts', {
                   method: 'POST', headers: this.getAuthHeaders(),
@@ -1217,8 +1227,9 @@
               });
               const data = await response.json();
               if (response.ok) {
-                const exists = this.managedAccounts.some(acc => acc.name === account.name);
-                if (!exists) {
+                const existsInManaged = this.managedAccounts.some(acc => acc.name === account.name);
+                const existsInEnv = this.envAccounts.some(acc => acc.name === account.name);
+                if (!existsInManaged && !existsInEnv) {
                   this.managedAccounts.push({ name: account.name, token: account.token, email: data.userData.email, username: data.userData.username });
                   successCount++;
                 } else {
@@ -1307,11 +1318,12 @@
           this.addAccountSuccess = '';
         },
         clearCache() {
-          if (confirm('Clear all cached data? This will remove locally stored accounts and cost data.')) {
+          if (confirm('Clear all cached data? This will remove locally stored managed accounts and cost data. Environment accounts will be preserved.')) {
             this.managedAccounts = [];
             this.projectCosts = {};
             localStorage.removeItem('zeabur_accounts');
             localStorage.removeItem('zeabur_project_costs');
+            this.saveManagedAccounts();
             this.fetchData();
           }
         },
@@ -1326,7 +1338,8 @@
           try {
             const environmentId = project.environments && project.environments[0] ? project.environments[0]._id : null;
             if (!environmentId) { alert('Cannot get environment ID'); return; }
-            const accountData = this.managedAccounts.find(acc => acc.name === account.name);
+            const allAccounts = [...this.envAccounts, ...this.managedAccounts];
+            const accountData = allAccounts.find(acc => acc.name === account.name);
             if (!accountData || !accountData.token) { alert('Cannot get account token'); return; }
             const response = await fetch('/api/service/pause', {
               method: 'POST', headers: this.getAuthHeaders(),
@@ -1342,7 +1355,8 @@
           try {
             const environmentId = project.environments && project.environments[0] ? project.environments[0]._id : null;
             if (!environmentId) { alert('Cannot get environment ID'); return; }
-            const accountData = this.managedAccounts.find(acc => acc.name === account.name);
+            const allAccounts = [...this.envAccounts, ...this.managedAccounts];
+            const accountData = allAccounts.find(acc => acc.name === account.name);
             if (!accountData || !accountData.token) { alert('Cannot get account token'); return; }
             const response = await fetch('/api/service/restart', {
               method: 'POST', headers: this.getAuthHeaders(),
@@ -1361,7 +1375,8 @@
           try {
             const environmentId = project.environments && project.environments[0] ? project.environments[0]._id : null;
             if (!environmentId) { this.logsContent = 'Cannot get environment ID'; this.logsLoading = false; return; }
-            const accountData = this.managedAccounts.find(acc => acc.name === account.name);
+            const allAccounts = [...this.envAccounts, ...this.managedAccounts];
+            const accountData = allAccounts.find(acc => acc.name === account.name);
             if (!accountData || !accountData.token) { this.logsContent = 'Cannot get account token'; this.logsLoading = false; return; }
             const response = await fetch('/api/service/logs', {
               method: 'POST', headers: this.getAuthHeaders(),
@@ -1414,7 +1429,8 @@
           if (!project.editingName || project.editingName.trim() === '') { alert('Project name cannot be empty'); return; }
           if (project.editingName === project.name) { this.cancelEditProjectName(project); return; }
           try {
-            const accountData = this.managedAccounts.find(acc => acc.name === account.name);
+            const allAccounts = [...this.envAccounts, ...this.managedAccounts];
+            const accountData = allAccounts.find(acc => acc.name === account.name);
             if (!accountData) { alert('Cannot find account info'); return; }
             const response = await fetch('/api/project/rename', {
               method: 'POST', headers: this.getAuthHeaders(),
