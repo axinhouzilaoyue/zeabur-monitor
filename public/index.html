@@ -590,12 +590,12 @@
     .settings-title { font-size: 15px; font-weight: 600; color: #111; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .settings-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
     .settings-row label { font-size: 13px; font-weight: 500; color: #374151; min-width: 120px; flex-shrink: 0; }
-    .toggle { position: relative; width: 40px; height: 22px; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
     .toggle-slider { position: absolute; inset: 0; background: #d1d5db; border-radius: 11px; cursor: pointer; transition: background 0.2s; }
-    .toggle-slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
     .toggle input:checked + .toggle-slider { background: #111; }
-    .toggle input:checked + .toggle-slider:before { transform: translateX(18px); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
 
     /* Domain inline management */
     .domain-remove { background: none; border: none; color: #d1d5db; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; transition: color 0.15s; }
