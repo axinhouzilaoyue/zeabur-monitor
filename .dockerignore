@@ -1,0 +1,12 @@
+node_modules
+.git
+.env
+accounts.json
+password.json
+*.log
+.DS_Store
+.vscode
+.idea
+.kiro
+*.md
+*.example

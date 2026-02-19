@@ -781,6 +781,12 @@ app.get('/api/version', (req, res) => {
 
 // 获取GitHub最新版本
 app.get('/api/latest-version', async (req, res) => {
+  let responded = false;
+  function sendOnce(status, data) {
+    if (responded) return;
+    responded = true;
+    res.status(status).json(data);
+  }
   try {
     const options = {
       hostname: 'raw.githubusercontent.com',
@@ -795,25 +801,25 @@ app.get('/api/latest-version', async (req, res) => {
       response.on('end', () => {
         try {
           const packageJson = JSON.parse(data);
-          res.json({ version: packageJson.version });
+          sendOnce(200, { version: packageJson.version });
         } catch (e) {
-          res.status(500).json({ error: '解析版本信息失败' });
+          sendOnce(500, { error: '解析版本信息失败' });
         }
       });
     });
 
     request.on('error', (error) => {
-      res.status(500).json({ error: '获取最新版本失败: ' + error.message });
+      sendOnce(500, { error: '获取最新版本失败: ' + error.message });
     });
 
     request.on('timeout', () => {
       request.destroy();
-      res.status(500).json({ error: '请求超时' });
+      sendOnce(500, { error: '请求超时' });
     });
 
     request.end();
   } catch (error) {
-    res.status(500).json({ error: '获取最新版本失败: ' + error.message });
+    sendOnce(500, { error: '获取最新版本失败: ' + error.message });
   }
 });
 
