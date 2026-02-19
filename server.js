@@ -65,10 +65,12 @@ function requireAuth(req, res, next) {
 
 app.use(express.static('public'));
 
-// 数据文件路径
-const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
-const PASSWORD_FILE = path.join(__dirname, 'password.json');
-const BARK_SETTINGS_FILE = path.join(__dirname, 'bark-settings.json');
+// 数据文件路径（统一放在 data 目录，方便 Docker 持久化挂载）
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) { fs.mkdirSync(DATA_DIR, { recursive: true }); }
+const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
+const PASSWORD_FILE = path.join(DATA_DIR, 'password.json');
+const BARK_SETTINGS_FILE = path.join(DATA_DIR, 'bark-settings.json');
 
 // 读取服务器存储的账号
 function loadServerAccounts() {
