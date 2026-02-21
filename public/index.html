@@ -561,6 +561,25 @@
       cursor: pointer;
     }
 
+    /* Language Toggle */
+    .lang-toggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 3000;
+      padding: 6px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #fff;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .lang-toggle:hover { background: #f9fafb; border-color: #9ca3af; }
+
     @media (max-width: 640px) {
       .container { padding: 16px; }
       .page-header { margin-bottom: 16px; }
@@ -615,38 +634,41 @@
 </head>
 <body>
   <div id="app">
+    <!-- Language Toggle -->
+    <button class="lang-toggle" @click="toggleLang">{{ lang === 'zh' ? 'EN' : '中文' }}</button>
+
     <!-- Encryption Setup -->
     <div v-if="showEncryptionWarning">
       <div class="setup-box">
-        <div class="setup-title">Security Setup Required</div>
-        <div class="setup-subtitle">Configure an encryption key to protect your API tokens</div>
+        <div class="setup-title">{{ t.securitySetup }}</div>
+        <div class="setup-subtitle">{{ t.securitySetupDesc }}</div>
 
         <div class="alert alert-warning" style="margin-bottom: 20px;">
           <ol class="steps-list">
-            <li>Copy the generated key below</li>
-            <li>Create or edit the <code>.env</code> file on your server</li>
-            <li>Add: <code>ACCOUNTS_SECRET=your_key</code></li>
-            <li>Save and restart the service</li>
+            <li>{{ t.step1 }}</li>
+            <li>{{ t.step2 }}<code>.env</code>{{ t.step2file }}</li>
+            <li>{{ t.step3 }}<code>ACCOUNTS_SECRET=your_key</code></li>
+            <li>{{ t.step4 }}</li>
           </ol>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Generated Encryption Key (click to copy)</label>
+          <label class="form-label">{{ t.generatedKey }}</label>
           <div class="secret-display" @click="copySecret">{{ suggestedSecret }}</div>
-          <div class="form-hint" style="text-align: center; margin-top: 8px;">Click the key above to copy to clipboard</div>
+          <div class="form-hint" style="text-align: center; margin-top: 8px;">{{ t.clickToCopy }}</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">.env example</label>
+          <label class="form-label">{{ t.envExample }}</label>
           <div style="background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; color: #374151;">
             <span style="color: #9ca3af;"># .env</span><br>
             ACCOUNTS_SECRET={{ suggestedSecret }}
           </div>
         </div>
 
-        <div class="alert alert-info">After setup, refresh this page to continue.</div>
+        <div class="alert alert-info">{{ t.afterSetup }}</div>
 
-        <button class="btn btn-primary" style="width: 100%;" @click="copySecret">Copy Key</button>
+        <button class="btn btn-primary" style="width: 100%;" @click="copySecret">{{ t.copyKey }}</button>
       </div>
     </div>
 
@@ -654,20 +676,20 @@
     <div v-if="showSetPasswordModal" class="modal-overlay">
       <div class="modal modal-sm">
         <div class="modal-header" style="text-align: center;">
-          <div class="modal-title">Welcome</div>
-          <div class="modal-subtitle">Set an admin password to get started</div>
+          <div class="modal-title">{{ t.welcome }}</div>
+          <div class="modal-subtitle">{{ t.setPasswordDesc }}</div>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <input v-model="setPassword" type="password" class="form-input"
-              placeholder="Password (min 6 characters)" @keyup.enter="setAdminPassword">
+              :placeholder="t.passwordPlaceholder" @keyup.enter="setAdminPassword">
           </div>
           <div class="form-group">
             <input v-model="setPasswordConfirm" type="password" class="form-input"
-              placeholder="Confirm password" @keyup.enter="setAdminPassword">
+              :placeholder="t.confirmPasswordPlaceholder" @keyup.enter="setAdminPassword">
           </div>
           <div v-if="setPasswordError" class="alert alert-error">{{ setPasswordError }}</div>
-          <button class="btn btn-primary" style="width: 100%;" @click="setAdminPassword">Set Password</button>
+          <button class="btn btn-primary" style="width: 100%;" @click="setAdminPassword">{{ t.setPasswordBtn }}</button>
         </div>
       </div>
     </div>
@@ -676,16 +698,16 @@
     <div v-if="showLoginModal" class="modal-overlay">
       <div class="modal modal-sm">
         <div class="modal-header" style="text-align: center;">
-          <div class="modal-title">Sign In</div>
-          <div class="modal-subtitle">Enter admin password to continue</div>
+          <div class="modal-title">{{ t.signIn }}</div>
+          <div class="modal-subtitle">{{ t.signInDesc }}</div>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <input v-model="loginPassword" type="password" class="form-input"
-              placeholder="Admin password" @keyup.enter="verifyPassword">
+              :placeholder="t.adminPasswordPlaceholder" @keyup.enter="verifyPassword">
           </div>
           <div v-if="loginError" class="alert alert-error">{{ loginError }}</div>
-          <button class="btn btn-primary" style="width: 100%;" @click="verifyPassword">Sign In</button>
+          <button class="btn btn-primary" style="width: 100%;" @click="verifyPassword">{{ t.signInBtn }}</button>
         </div>
       </div>
     </div>
@@ -694,46 +716,46 @@
     <div v-if="isAuthenticated" class="container">
       <!-- Header -->
       <div class="page-header">
-        <h1 class="page-title">Zeabur Monitor</h1>
+        <h1 class="page-title">{{ t.title }}</h1>
         <div class="header-actions">
           <button class="btn" @click="fetchData" :disabled="loading">
-            {{ loading ? 'Loading...' : 'Refresh' }}
+            {{ loading ? t.loading : t.refresh }}
           </button>
-          <button class="btn" @click="showManageModal = true">Accounts</button>
-          <button class="btn" @click="openUsageDetail">Usage</button>
-          <button class="btn" @click="openSettings">Settings</button>
-          <button class="btn btn-danger" @click="clearCache">Clear Cache</button>
-          <span class="update-time">Updated {{ lastUpdate }}</span>
+          <button class="btn" @click="showManageModal = true">{{ t.accounts }}</button>
+          <button class="btn" @click="openUsageDetail">{{ t.usage }}</button>
+          <button class="btn" @click="openSettings">{{ t.settings }}</button>
+          <button class="btn btn-danger" @click="clearCache">{{ t.clearCache }}</button>
+          <span class="update-time">{{ t.updated }} {{ lastUpdate }}</span>
         </div>
       </div>
 
       <!-- Summary Stats -->
       <div v-if="accounts.length > 0" class="stats-row">
         <div class="stat-card">
-          <div class="stat-label">Accounts</div>
+          <div class="stat-label">{{ t.statAccounts }}</div>
           <div class="stat-value">{{ accounts.length }}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Projects</div>
+          <div class="stat-label">{{ t.statProjects }}</div>
           <div class="stat-value">{{ totalProjects }}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Services</div>
+          <div class="stat-label">{{ t.statServices }}</div>
           <div class="stat-value">{{ totalServices }}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Running</div>
+          <div class="stat-label">{{ t.statRunning }}</div>
           <div class="stat-value">{{ runningServices }}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Cost</div>
+          <div class="stat-label">{{ t.statTotalCost }}</div>
           <div class="stat-value cost">${{ totalCost.toFixed(2) }}</div>
         </div>
       </div>
 
       <!-- Loading -->
       <div v-if="loading && accounts.length === 0" style="text-align: center; padding: 60px 0; color: #9ca3af;">
-        Loading data...
+        {{ t.loadingData }}
       </div>
 
       <!-- Account Cards -->
@@ -780,8 +802,8 @@
               <!-- Project Meta -->
               <div class="project-meta">
                 <span>{{ project.region }}</span>
-                <span>{{ project.services.length }} services</span>
-                <span>{{ project.services.filter(s => s.status === 'RUNNING').length }} running</span>
+                <span>{{ project.services.length }}{{ t.nServices }}</span>
+                <span>{{ project.services.filter(s => s.status === 'RUNNING').length }}{{ t.nRunning }}</span>
               </div>
 
               <!-- Services -->
@@ -793,19 +815,19 @@
                       {{ getStatusLabel(service.status) }}
                     </span>
                     <button v-if="service.status === 'RUNNING'" class="btn btn-sm"
-                      @click="pauseService(account, project, service)">Pause</button>
+                      @click="pauseService(account, project, service)">{{ t.pause }}</button>
                     <button class="btn btn-sm"
                       @click="restartService(account, project, service)">
-                      {{ service.status === 'SUSPENDED' ? 'Start' : 'Restart' }}
+                      {{ service.status === 'SUSPENDED' ? t.start : t.restart }}
                     </button>
-                    <button class="btn btn-sm" @click="showServiceLogs(account, project, service)">Logs</button>
-                    <button class="btn btn-sm" @click="showBuildLogs(account, project, service)">Build</button>
-                    <button class="btn btn-sm" @click="showEnvVars(account, project, service)">Env</button>
+                    <button class="btn btn-sm" @click="showServiceLogs(account, project, service)">{{ t.logs }}</button>
+                    <button class="btn btn-sm" @click="showBuildLogs(account, project, service)">{{ t.build }}</button>
+                    <button class="btn btn-sm" @click="showEnvVars(account, project, service)">{{ t.env }}</button>
                   </div>
                 </div>
               </div>
               <div v-if="project.services.length === 0" style="color: #9ca3af; font-size: 13px; text-align: center; padding: 16px 0;">
-                No services
+                {{ t.noServices }}
               </div>
 
               <!-- Domains -->
@@ -814,15 +836,15 @@
                   style="display: flex; align-items: center; gap: 4px;">
                   <a :href="'https://' + domainInfo.domain" target="_blank" class="domain-link" style="flex:1;">
                     <span>{{ domainInfo.domain }}</span>
-                    <span v-if="domainInfo.isGenerated" class="domain-auto">auto</span>
+                    <span v-if="domainInfo.isGenerated" class="domain-auto">{{ t.auto }}</span>
                   </a>
-                  <button v-if="!domainInfo.isGenerated" class="domain-remove" title="Remove domain"
+                  <button v-if="!domainInfo.isGenerated" class="domain-remove" :title="t.removeDomainTitle"
                     @click="removeDomain(account, domainInfo)">&times;</button>
                 </div>
                 <div class="domain-add-row">
-                  <input class="domain-add-input" placeholder="Add domain..."
+                  <input class="domain-add-input" :placeholder="t.addDomainPlaceholder"
                     @keyup.enter="addDomain(account, project, $event)">
-                  <button class="btn btn-sm" @click="addDomain(account, project, $event)">Add</button>
+                  <button class="btn btn-sm" @click="addDomain(account, project, $event)">{{ t.add }}</button>
                 </div>
               </div>
             </div>
@@ -832,7 +854,7 @@
 
       <!-- Empty State -->
       <div v-if="!loading && accounts.length === 0" class="alert alert-info">
-        No accounts configured. Click "Accounts" to add your Zeabur API tokens.
+        {{ t.noAccounts }}
       </div>
 
       <!-- Logs Modal -->
@@ -841,17 +863,17 @@
           <div class="logs-container">
             <div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb;">
               <div class="modal-title" style="font-size: 15px;">{{ logsModalTitle }}</div>
-              <button class="btn btn-sm" @click="showLogsModal = false">Close</button>
+              <button class="btn btn-sm" @click="showLogsModal = false">{{ t.close }}</button>
             </div>
             <div class="logs-bar">
-              <span>Project: {{ logsModalInfo.project }}</span>
-              <span>Account: {{ logsModalInfo.account }}</span>
-              <span>Entries: {{ logsModalInfo.count }}</span>
+              <span>{{ t.project }}: {{ logsModalInfo.project }}</span>
+              <span>{{ t.account }}: {{ logsModalInfo.account }}</span>
+              <span>{{ t.entries }}: {{ logsModalInfo.count }}</span>
               <span>{{ logsModalInfo.time }}</span>
             </div>
             <div class="logs-body">
-              <div v-if="logsLoading" style="text-align: center; padding: 40px; color: #9ca3af;">Loading logs...</div>
-              <pre v-else class="logs-pre">{{ logsContent || 'No logs available' }}</pre>
+              <div v-if="logsLoading" style="text-align: center; padding: 40px; color: #9ca3af;">{{ t.loadingLogs }}</div>
+              <pre v-else class="logs-pre">{{ logsContent || t.noLogs }}</pre>
             </div>
           </div>
         </div>
@@ -861,14 +883,14 @@
       <div v-if="showEnvModal" class="modal-overlay" @click.self="showEnvModal = false" style="z-index: 2000;">
         <div class="modal modal-md">
           <div class="modal-header">
-            <div class="modal-title">Environment Variables</div>
+            <div class="modal-title">{{ t.envVars }}</div>
             <div class="modal-subtitle">{{ envModalService }}</div>
           </div>
           <div class="modal-body">
-            <div v-if="envLoading" style="text-align: center; padding: 24px; color: #9ca3af;">Loading...</div>
+            <div v-if="envLoading" style="text-align: center; padding: 24px; color: #9ca3af;">{{ t.loading }}</div>
             <div v-else>
               <table v-if="envVarsList.length > 0" class="env-table">
-                <thead><tr><th>Key</th><th>Value</th><th style="width:80px"></th></tr></thead>
+                <thead><tr><th>{{ t.key }}</th><th>{{ t.value }}</th><th style="width:80px"></th></tr></thead>
                 <tbody>
                   <tr v-for="(v, i) in envVarsList" :key="v.key">
                     <td>{{ v.key }}</td>
@@ -877,27 +899,27 @@
                       <input v-else v-model="v.editValue" class="env-input" style="width:100%;">
                     </td>
                     <td class="env-actions">
-                      <button v-if="!v.editing" class="btn btn-sm" @click="v.masked = !v.masked">{{ v.masked ? 'Show' : 'Hide' }}</button>
-                      <button v-if="!v.editing" class="btn btn-sm" @click="v.editing = true; v.editValue = v.value">Edit</button>
-                      <button v-if="v.editing" class="btn btn-sm btn-primary" @click="saveEnvVar(v)">Save</button>
-                      <button v-if="v.editing" class="btn btn-sm" @click="v.editing = false">Cancel</button>
-                      <button class="btn btn-sm btn-danger" @click="deleteEnvVar(v.key)">Del</button>
+                      <button v-if="!v.editing" class="btn btn-sm" @click="v.masked = !v.masked">{{ v.masked ? t.show : t.hide }}</button>
+                      <button v-if="!v.editing" class="btn btn-sm" @click="v.editing = true; v.editValue = v.value">{{ t.edit }}</button>
+                      <button v-if="v.editing" class="btn btn-sm btn-primary" @click="saveEnvVar(v)">{{ t.save }}</button>
+                      <button v-if="v.editing" class="btn btn-sm" @click="v.editing = false">{{ t.cancel }}</button>
+                      <button class="btn btn-sm btn-danger" @click="deleteEnvVar(v.key)">{{ t.del }}</button>
                     </td>
                   </tr>
                 </tbody>
               </table>
-              <div v-else style="text-align: center; color: #9ca3af; padding: 16px;">No environment variables</div>
+              <div v-else style="text-align: center; color: #9ca3af; padding: 16px;">{{ t.noEnvVars }}</div>
               <div class="divider"></div>
               <div style="display:flex; gap:8px;">
                 <input v-model="newEnvKey" class="env-input" placeholder="KEY" style="flex:1;">
-                <input v-model="newEnvValue" class="env-input" placeholder="Value" style="flex:2;">
-                <button class="btn btn-sm btn-primary" @click="addEnvVar">Add</button>
+                <input v-model="newEnvValue" class="env-input" :placeholder="t.value" style="flex:2;">
+                <button class="btn btn-sm btn-primary" @click="addEnvVar">{{ t.add }}</button>
               </div>
               <div v-if="envError" class="alert alert-error" style="margin-top:8px;">{{ envError }}</div>
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn" style="width:100%;" @click="showEnvModal = false">Close</button>
+            <button class="btn" style="width:100%;" @click="showEnvModal = false">{{ t.close }}</button>
           </div>
         </div>
       </div>
@@ -907,13 +929,13 @@
         <div class="modal modal-lg">
           <div class="logs-container">
             <div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb;">
-              <div class="modal-title" style="font-size: 15px;">Build Logs - {{ buildModalService }}</div>
-              <button class="btn btn-sm" @click="showBuildModal = false">Close</button>
+              <div class="modal-title" style="font-size: 15px;">{{ t.buildLogs }} - {{ buildModalService }}</div>
+              <button class="btn btn-sm" @click="showBuildModal = false">{{ t.close }}</button>
             </div>
             <div v-if="!buildLogsContent" class="modal-body">
-              <div v-if="buildLoading" style="text-align: center; padding: 24px; color: #9ca3af;">Loading deployments...</div>
+              <div v-if="buildLoading" style="text-align: center; padding: 24px; color: #9ca3af;">{{ t.loadingDeployments }}</div>
               <div v-else>
-                <div v-if="deploymentsList.length === 0" style="text-align: center; color: #9ca3af; padding: 16px;">No deployments</div>
+                <div v-if="deploymentsList.length === 0" style="text-align: center; color: #9ca3af; padding: 16px;">{{ t.noDeployments }}</div>
                 <div v-for="dep in deploymentsList" :key="dep._id" class="deploy-item" @click="fetchBuildLog(dep._id)">
                   <div>
                     <span style="font-weight:500;">{{ new Date(dep.createdAt).toLocaleString('zh-CN') }}</span>
@@ -924,11 +946,11 @@
             </div>
             <div v-else>
               <div class="logs-bar">
-                <button class="btn btn-sm" @click="buildLogsContent = ''">Back to list</button>
-                <span>Deployment: {{ buildLogDeployId }}</span>
+                <button class="btn btn-sm" @click="buildLogsContent = ''">{{ t.backToList }}</button>
+                <span>{{ t.deployment }}: {{ buildLogDeployId }}</span>
               </div>
               <div class="logs-body">
-                <div v-if="buildLoading" style="text-align: center; padding: 40px; color: #9ca3af;">Loading build logs...</div>
+                <div v-if="buildLoading" style="text-align: center; padding: 40px; color: #9ca3af;">{{ t.loadingBuildLogs }}</div>
                 <pre v-else class="logs-pre">{{ buildLogsContent }}</pre>
               </div>
             </div>
@@ -940,21 +962,21 @@
       <div v-if="showUsageModal" class="modal-overlay" @click.self="showUsageModal = false" style="z-index: 2000;">
         <div class="modal modal-lg">
           <div class="modal-header">
-            <div class="modal-title">Usage Details</div>
+            <div class="modal-title">{{ t.usageDetails }}</div>
             <div class="modal-subtitle">{{ usagePeriod }}</div>
           </div>
           <div class="modal-body">
-            <div v-if="usageLoading" style="text-align: center; padding: 24px; color: #9ca3af;">Loading usage data...</div>
+            <div v-if="usageLoading" style="text-align: center; padding: 24px; color: #9ca3af;">{{ t.loadingUsage }}</div>
             <div v-else>
-              <div v-if="usageData.length === 0" style="text-align: center; color: #9ca3af; padding: 16px;">No usage data</div>
+              <div v-if="usageData.length === 0" style="text-align: center; color: #9ca3af; padding: 16px;">{{ t.noUsage }}</div>
               <table v-else class="usage-table">
                 <thead>
                   <tr>
-                    <th>Service</th>
-                    <th>Total</th>
-                    <th>CPU</th>
-                    <th>Memory</th>
-                    <th>Network</th>
+                    <th>{{ t.service }}</th>
+                    <th>{{ t.total }}</th>
+                    <th>{{ t.cpu }}</th>
+                    <th>{{ t.memory }}</th>
+                    <th>{{ t.network }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -966,7 +988,7 @@
                     <td>${{ item.network.toFixed(4) }}</td>
                   </tr>
                   <tr style="font-weight:700; border-top: 2px solid #e5e7eb;">
-                    <td>Total</td>
+                    <td>{{ t.total }}</td>
                     <td>${{ usageTotalCost.toFixed(4) }}</td>
                     <td>${{ usageTotalCPU.toFixed(4) }}</td>
                     <td>${{ usageTotalMemory.toFixed(4) }}</td>
@@ -977,7 +999,7 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn" style="width:100%;" @click="showUsageModal = false">Close</button>
+            <button class="btn" style="width:100%;" @click="showUsageModal = false">{{ t.close }}</button>
           </div>
         </div>
       </div>
@@ -986,70 +1008,70 @@
       <div v-if="showSettingsModal" class="modal-overlay" @mousedown.self="showSettingsModal = false" style="z-index: 2000;">
         <div class="modal modal-md">
           <div class="modal-header">
-            <div class="modal-title">Settings</div>
+            <div class="modal-title">{{ t.settingsTitle }}</div>
           </div>
           <div class="modal-body">
             <div class="settings-section">
-              <div class="settings-title">Bark Push Notifications</div>
+              <div class="settings-title">{{ t.barkNotifications }}</div>
               <div class="settings-row">
-                <label>Enable</label>
+                <label>{{ t.enable }}</label>
                 <label class="toggle">
                   <input type="checkbox" v-model="barkSettings.enabled">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
               <div class="form-group">
-                <label class="form-label">Bark Server URL</label>
+                <label class="form-label">{{ t.barkServerUrl }}</label>
                 <input v-model="barkSettings.url" class="form-input" placeholder="https://api.day.app">
-                <div class="form-hint">Default public server: https://api.day.app</div>
+                <div class="form-hint">{{ t.defaultServer }}</div>
               </div>
               <div class="form-group">
-                <label class="form-label">Device Key</label>
-                <input v-model="barkSettings.deviceKey" class="form-input" placeholder="Your Bark device key">
-                <div class="form-hint">Get it from Bark iOS app</div>
+                <label class="form-label">{{ t.deviceKey }}</label>
+                <input v-model="barkSettings.deviceKey" class="form-input" :placeholder="t.deviceKeyPlaceholder">
+                <div class="form-hint">{{ t.deviceKeyHint }}</div>
               </div>
               <div class="form-group">
-                <label class="form-label">Check Interval (minutes)</label>
+                <label class="form-label">{{ t.checkInterval }}</label>
                 <input v-model.number="barkSettings.interval" type="number" class="form-input" min="1" max="60" style="width:120px;">
               </div>
               <div class="divider"></div>
-              <div class="settings-title">Notification Rules</div>
+              <div class="settings-title">{{ t.notificationRules }}</div>
               <div class="settings-row">
-                <label>Service Down</label>
+                <label>{{ t.serviceDown }}</label>
                 <label class="toggle">
                   <input type="checkbox" v-model="barkSettings.notifyServiceDown">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
               <div class="settings-row">
-                <label>Service Recovery</label>
+                <label>{{ t.serviceRecovery }}</label>
                 <label class="toggle">
                   <input type="checkbox" v-model="barkSettings.notifyServiceRecovery">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
               <div class="settings-row">
-                <label>Low Balance</label>
+                <label>{{ t.lowBalance }}</label>
                 <label class="toggle">
                   <input type="checkbox" v-model="barkSettings.notifyBalanceLow">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
               <div v-if="barkSettings.notifyBalanceLow" class="form-group">
-                <label class="form-label">Balance Threshold (cents)</label>
+                <label class="form-label">{{ t.balanceThreshold }}</label>
                 <input v-model.number="barkSettings.balanceThreshold" type="number" class="form-input" min="0" style="width:120px;">
-                <div class="form-hint">Alert when balance drops below ${{ (barkSettings.balanceThreshold / 100).toFixed(2) }}</div>
+                <div class="form-hint">{{ t.balanceThresholdHint.replace('${amount}', (barkSettings.balanceThreshold / 100).toFixed(2)) }}</div>
               </div>
             </div>
             <div v-if="settingsError" class="alert alert-error">{{ settingsError }}</div>
             <div v-if="settingsSuccess" class="alert alert-success">{{ settingsSuccess }}</div>
             <div style="display:flex; gap:8px;">
-              <button class="btn btn-primary" style="flex:1;" @click="saveBarkSettings">Save</button>
-              <button class="btn" @click="testBark" :disabled="barkTesting">{{ barkTesting ? 'Sending...' : 'Test' }}</button>
+              <button class="btn btn-primary" style="flex:1;" @click="saveBarkSettings">{{ t.save }}</button>
+              <button class="btn" @click="testBark" :disabled="barkTesting">{{ barkTesting ? t.sending : t.test }}</button>
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn" style="width:100%; margin-top:8px;" @click="showSettingsModal = false">Close</button>
+            <button class="btn" style="width:100%; margin-top:8px;" @click="showSettingsModal = false">{{ t.close }}</button>
           </div>
         </div>
       </div>
@@ -1058,62 +1080,61 @@
       <div v-if="showManageModal" class="modal-overlay" @mousedown.self="showManageModal = false">
         <div class="modal modal-md">
           <div class="modal-header">
-            <div class="modal-title">Account Management</div>
+            <div class="modal-title">{{ t.accountManagement }}</div>
           </div>
           <div class="modal-body">
             <!-- Env accounts (read-only) -->
             <div v-if="envAccounts.length > 0" style="margin-bottom: 16px;">
-              <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">Environment Accounts</div>
+              <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">{{ t.environmentAccounts }}</div>
               <div class="alert alert-info" style="margin-bottom: 8px;">
-                These accounts are from server environment variables and cannot be modified here.
+                {{ t.envAccountsHint }}
               </div>
               <div v-for="(account, index) in envAccounts" :key="'env-' + index" class="account-list-item">
                 <div>
                   <div class="account-list-name">{{ account.name }}</div>
-                  <div class="account-list-email">Environment variable</div>
+                  <div class="account-list-email">{{ t.envVariable }}</div>
                 </div>
-                <span class="account-list-tag">ENV</span>
+                <span class="account-list-tag">{{ t.envTag }}</span>
               </div>
             </div>
 
             <!-- Server-stored accounts (manageable) -->
-            <div v-if="envAccounts.length > 0 && managedAccounts.length > 0" style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">Managed Accounts</div>
+            <div v-if="envAccounts.length > 0 && managedAccounts.length > 0" style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">{{ t.managedAccountsTitle }}</div>
             <div v-for="(account, index) in managedAccounts" :key="'local-' + index" class="account-list-item">
               <div>
                 <div class="account-list-name">{{ account.name }}</div>
-                <div class="account-list-email">{{ maskEmail(account.email) || 'Unknown' }}</div>
+                <div class="account-list-email">{{ maskEmail(account.email) || t.unknown }}</div>
               </div>
-              <button class="btn btn-sm btn-danger" @click="removeAccount(index)">Remove</button>
+              <button class="btn btn-sm btn-danger" @click="removeAccount(index)">{{ t.remove }}</button>
             </div>
 
             <div v-if="managedAccounts.length === 0 && envAccounts.length === 0"
               style="text-align: center; color: #9ca3af; padding: 24px 0;">
-              No accounts yet
+              {{ t.noAccountsYet }}
             </div>
 
             <!-- Add Account -->
             <div class="divider"></div>
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 16px;">Add Account</div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 16px;">{{ t.addAccount }}</div>
             <div class="form-group">
-              <label class="form-label">Name</label>
-              <input v-model="newAccount.name" type="text" class="form-input" placeholder="e.g. My Account">
+              <label class="form-label">{{ t.name }}</label>
+              <input v-model="newAccount.name" type="text" class="form-input" :placeholder="t.namePlaceholder">
             </div>
             <div class="form-group">
-              <label class="form-label">API Token</label>
-              <input v-model="newAccount.token" type="password" class="form-input" placeholder="sk-xxxxxxxxxxxxxxxx">
+              <label class="form-label">{{ t.apiToken }}</label>
+              <input v-model="newAccount.token" type="password" class="form-input" :placeholder="t.tokenPlaceholder">
             </div>
             <div v-if="addAccountError" class="alert alert-error">{{ addAccountError }}</div>
             <div v-if="addAccountSuccess" class="alert alert-success">{{ addAccountSuccess }}</div>
             <button class="btn btn-primary" style="width: 100%;" @click="addAccountToList" :disabled="addingAccount">
-              {{ addingAccount ? 'Verifying...' : 'Add Account' }}
+              {{ addingAccount ? t.verifying : t.addAccount }}
             </button>
 
             <!-- Batch Add -->
             <div class="divider-dashed"></div>
-            <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">Batch Add</div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">{{ t.batchAdd }}</div>
             <div class="form-hint" style="margin-bottom: 12px;">
-              One account per line. Formats: <code style="background:#f3f4f6; padding:1px 4px; border-radius:3px; font-size:12px;">name:token</code>
-              or <code style="background:#f3f4f6; padding:1px 4px; border-radius:3px; font-size:12px;">name(token)</code>
+              {{ t.batchHint }}<code style="background:#f3f4f6; padding:1px 4px; border-radius:3px; font-size:12px;">name:token</code>{{ t.batchOr }}<code style="background:#f3f4f6; padding:1px 4px; border-radius:3px; font-size:12px;">name(token)</code>
             </div>
             <div class="form-group">
               <textarea v-model="batchAccounts" class="form-textarea"
@@ -1122,11 +1143,11 @@
             <div v-if="batchAddError" class="alert alert-error">{{ batchAddError }}</div>
             <div v-if="batchAddSuccess" class="alert alert-success">{{ batchAddSuccess }}</div>
             <button class="btn btn-primary" style="width: 100%;" @click="batchAddAccounts" :disabled="addingAccount">
-              {{ addingAccount ? 'Adding...' : 'Batch Add' }}
+              {{ addingAccount ? t.adding : t.batchAdd }}
             </button>
           </div>
           <div class="modal-footer">
-            <button class="btn" style="width: 100%;" @click="closeManageModal">Close</button>
+            <button class="btn" style="width: 100%;" @click="closeManageModal">{{ t.close }}</button>
           </div>
         </div>
       </div>
@@ -1135,11 +1156,11 @@
       <div class="page-footer">
         <a href="https://github.com/jiujiu532/zeabur-monitor" target="_blank">github.com/jiujiu532/zeabur-monitor</a>
         <div class="version-row">
-          <span>Current: {{ currentVersion }}</span>
-          <span>Latest: {{ latestVersion }}</span>
+          <span>{{ t.current }}: {{ currentVersion }}</span>
+          <span>{{ t.latest }}: {{ latestVersion }}</span>
           <span v-if="!versionLoading">
-            <template v-if="isNewVersionAvailable()">Update available</template>
-            <template v-else>Up to date</template>
+            <template v-if="isNewVersionAvailable()">{{ t.updateAvailable }}</template>
+            <template v-else>{{ t.upToDate }}</template>
           </span>
         </div>
       </div>
@@ -1148,6 +1169,91 @@
 
   <script>
     const { createApp } = Vue;
+
+    const i18n = {
+      zh: {
+        title: 'Zeabur Monitor', refresh: '刷新', loading: '加载中...', accounts: '账号管理', usage: '用量', settings: '设置', clearCache: '清除缓存', updated: '更新于',
+        statAccounts: '账号', statProjects: '项目', statServices: '服务', statRunning: '运行中', statTotalCost: '总费用',
+        loadingData: '加载数据中...',
+        nServices: '个服务', nRunning: '个运行中', noServices: '暂无服务',
+        statusRunning: '运行中', statusStopped: '已停止', statusDeploying: '部署中',
+        pause: '暂停', start: '启动', restart: '重启', logs: '日志', build: '构建', env: '环境变量',
+        auto: '自动', addDomainPlaceholder: '添加域名...', add: '添加', removeDomainTitle: '移除域名',
+        noAccounts: '暂无账号配置。点击"账号管理"添加您的 Zeabur API Token。',
+        close: '关闭', project: '项目', account: '账号', entries: '条数', loadingLogs: '加载日志中...', noLogs: '暂无日志',
+        envVars: '环境变量', key: '键', value: '值', show: '显示', hide: '隐藏', edit: '编辑', save: '保存', cancel: '取消', del: '删除', noEnvVars: '暂无环境变量',
+        buildLogs: '构建日志', loadingDeployments: '加载部署列表...', noDeployments: '暂无部署记录', backToList: '返回列表', deployment: '部署', loadingBuildLogs: '加载构建日志...',
+        usageDetails: '用量明细', loadingUsage: '加载用量数据...', noUsage: '暂无用量数据', service: '服务', total: '总计', cpu: 'CPU', memory: '内存', network: '网络',
+        settingsTitle: '设置', barkNotifications: 'Bark 推送通知', enable: '启用', barkServerUrl: 'Bark 服务器地址', defaultServer: '默认公共服务器：https://api.day.app',
+        deviceKey: '设备密钥', deviceKeyPlaceholder: '您的 Bark 设备密钥', deviceKeyHint: '在 Bark iOS 应用中获取', checkInterval: '检查间隔（分钟）',
+        notificationRules: '通知规则', serviceDown: '服务宕机', serviceRecovery: '服务恢复', lowBalance: '余额不足',
+        balanceThreshold: '余额阈值（美分）', balanceThresholdHint: '余额低于 ${amount} 时告警',
+        sending: '发送中...', test: '测试', settingsSaved: '设置已保存', fillUrlAndKey: '请先填写 URL 和设备密钥',
+        accountManagement: '账号管理', environmentAccounts: '环境变量账号', envAccountsHint: '这些账号来自服务器环境变量，无法在此修改。',
+        envVariable: '环境变量', envTag: 'ENV', managedAccountsTitle: '托管账号', unknown: '未知', remove: '移除', noAccountsYet: '暂无账号',
+        addAccount: '添加账号', name: '名称', namePlaceholder: '例如：我的账号', apiToken: 'API Token', tokenPlaceholder: 'sk-xxxxxxxxxxxxxxxx',
+        verifying: '验证中...', batchAdd: '批量添加', batchHint: '每行一个账号，格式：', batchOr: ' 或 ', adding: '添加中...',
+        current: '当前版本', latest: '最新版本', updateAvailable: '有新版本', upToDate: '已是最新',
+        securitySetup: '安全设置', securitySetupDesc: '配置加密密钥以保护您的 API Token',
+        step1: '复制下方生成的密钥', step2: '在服务器上创建或编辑 ', step2file: ' 文件', step3: '添加：', step4: '保存并重启服务',
+        generatedKey: '生成的加密密钥（点击复制）', clickToCopy: '点击上方密钥复制到剪贴板', envExample: '.env 示例',
+        afterSetup: '设置完成后，刷新此页面继续。', copyKey: '复制密钥',
+        welcome: '欢迎', setPasswordDesc: '设置管理员密码以开始使用', passwordPlaceholder: '密码（至少6位）', confirmPasswordPlaceholder: '确认密码', setPasswordBtn: '设置密码',
+        signIn: '登录', signInDesc: '输入管理员密码继续', adminPasswordPlaceholder: '管理员密码', signInBtn: '登录',
+        msgPasswordMin: '密码至少需要6个字符', msgPasswordsNoMatch: '两次密码不一致', msgFailedSetPassword: '设置密码失败', msgIncorrectPassword: '密码错误',
+        msgPauseConfirm: '确定暂停服务 "{name}"？', msgCantGetEnvId: '无法获取环境 ID', msgCantGetToken: '无法获取账号 Token',
+        msgConfirmAction: '确定{action}服务 "{name}"？', msgProjectNameEmpty: '项目名称不能为空', msgCantFindAccount: '无法找到账号信息',
+        msgKeyCopied: '密钥已复制到剪贴板。请按照设置步骤操作后刷新页面。', msgNameTokenRequired: '名称和 API Token 不能为空',
+        msgEnterPasswordToRemove: '输入管理员密码以移除 "{name}"：',
+        msgClearCacheConfirm: '确定清除所有缓存数据？这将删除本地存储的托管账号和费用数据。环境变量账号将被保留。',
+        msgNoServiceInProject: '项目中没有服务', msgRemoveDomainConfirm: '确定移除域名 "{name}"？', msgDeleteEnvVarConfirm: '确定删除环境变量 "{name}"？',
+        msgKeyRequired: '键名不能为空', msgFailed: '失败', msgError: '错误', msgExists: '已存在', msgNetworkError: '网络错误',
+        msgAccountsAdded: '已添加 {n} 个账号', msgAllFailed: '全部失败', msgPleaseEnterAccountInfo: '请输入账号信息',
+        msgInvalidFormat: '格式无效', msgNameOrTokenEmpty: '名称或 Token 为空', msgNoValidAccounts: '没有有效的账号',
+        msgAccountAdded: '账号已添加：{name}', msgFailedToAdd: '添加失败', msgLine: '第{n}行'
+      },
+      en: {
+        title: 'Zeabur Monitor', refresh: 'Refresh', loading: 'Loading...', accounts: 'Accounts', usage: 'Usage', settings: 'Settings', clearCache: 'Clear Cache', updated: 'Updated',
+        statAccounts: 'Accounts', statProjects: 'Projects', statServices: 'Services', statRunning: 'Running', statTotalCost: 'Total Cost',
+        loadingData: 'Loading data...',
+        nServices: ' services', nRunning: ' running', noServices: 'No services',
+        statusRunning: 'Running', statusStopped: 'Stopped', statusDeploying: 'Deploying',
+        pause: 'Pause', start: 'Start', restart: 'Restart', logs: 'Logs', build: 'Build', env: 'Env',
+        auto: 'auto', addDomainPlaceholder: 'Add domain...', add: 'Add', removeDomainTitle: 'Remove domain',
+        noAccounts: 'No accounts configured. Click "Accounts" to add your Zeabur API tokens.',
+        close: 'Close', project: 'Project', account: 'Account', entries: 'Entries', loadingLogs: 'Loading logs...', noLogs: 'No logs available',
+        envVars: 'Environment Variables', key: 'Key', value: 'Value', show: 'Show', hide: 'Hide', edit: 'Edit', save: 'Save', cancel: 'Cancel', del: 'Del', noEnvVars: 'No environment variables',
+        buildLogs: 'Build Logs', loadingDeployments: 'Loading deployments...', noDeployments: 'No deployments', backToList: 'Back to list', deployment: 'Deployment', loadingBuildLogs: 'Loading build logs...',
+        usageDetails: 'Usage Details', loadingUsage: 'Loading usage data...', noUsage: 'No usage data', service: 'Service', total: 'Total', cpu: 'CPU', memory: 'Memory', network: 'Network',
+        settingsTitle: 'Settings', barkNotifications: 'Bark Push Notifications', enable: 'Enable', barkServerUrl: 'Bark Server URL', defaultServer: 'Default public server: https://api.day.app',
+        deviceKey: 'Device Key', deviceKeyPlaceholder: 'Your Bark device key', deviceKeyHint: 'Get it from Bark iOS app', checkInterval: 'Check Interval (minutes)',
+        notificationRules: 'Notification Rules', serviceDown: 'Service Down', serviceRecovery: 'Service Recovery', lowBalance: 'Low Balance',
+        balanceThreshold: 'Balance Threshold (cents)', balanceThresholdHint: 'Alert when balance drops below ${amount}',
+        sending: 'Sending...', test: 'Test', settingsSaved: 'Settings saved', fillUrlAndKey: 'Please fill in URL and Device Key first',
+        accountManagement: 'Account Management', environmentAccounts: 'Environment Accounts', envAccountsHint: 'These accounts are from server environment variables and cannot be modified here.',
+        envVariable: 'Environment variable', envTag: 'ENV', managedAccountsTitle: 'Managed Accounts', unknown: 'Unknown', remove: 'Remove', noAccountsYet: 'No accounts yet',
+        addAccount: 'Add Account', name: 'Name', namePlaceholder: 'e.g. My Account', apiToken: 'API Token', tokenPlaceholder: 'sk-xxxxxxxxxxxxxxxx',
+        verifying: 'Verifying...', batchAdd: 'Batch Add', batchHint: 'One account per line. Formats: ', batchOr: ' or ', adding: 'Adding...',
+        current: 'Current', latest: 'Latest', updateAvailable: 'Update available', upToDate: 'Up to date',
+        securitySetup: 'Security Setup Required', securitySetupDesc: 'Configure an encryption key to protect your API tokens',
+        step1: 'Copy the generated key below', step2: 'Create or edit the ', step2file: ' file on your server', step3: 'Add: ', step4: 'Save and restart the service',
+        generatedKey: 'Generated Encryption Key (click to copy)', clickToCopy: 'Click the key above to copy to clipboard', envExample: '.env example',
+        afterSetup: 'After setup, refresh this page to continue.', copyKey: 'Copy Key',
+        welcome: 'Welcome', setPasswordDesc: 'Set an admin password to get started', passwordPlaceholder: 'Password (min 6 characters)', confirmPasswordPlaceholder: 'Confirm password', setPasswordBtn: 'Set Password',
+        signIn: 'Sign In', signInDesc: 'Enter admin password to continue', adminPasswordPlaceholder: 'Admin password', signInBtn: 'Sign In',
+        msgPasswordMin: 'Password must be at least 6 characters', msgPasswordsNoMatch: 'Passwords do not match', msgFailedSetPassword: 'Failed to set password', msgIncorrectPassword: 'Incorrect password',
+        msgPauseConfirm: 'Pause service "{name}"?', msgCantGetEnvId: 'Cannot get environment ID', msgCantGetToken: 'Cannot get account token',
+        msgConfirmAction: '{action} service "{name}"?', msgProjectNameEmpty: 'Project name cannot be empty', msgCantFindAccount: 'Cannot find account info',
+        msgKeyCopied: 'Key copied to clipboard. Follow the setup steps then refresh.', msgNameTokenRequired: 'Name and API Token are required',
+        msgEnterPasswordToRemove: 'Enter admin password to remove "{name}":',
+        msgClearCacheConfirm: 'Clear all cached data? This will remove locally stored managed accounts and cost data. Environment accounts will be preserved.',
+        msgNoServiceInProject: 'No service in project', msgRemoveDomainConfirm: 'Remove domain "{name}"?', msgDeleteEnvVarConfirm: 'Delete env var "{name}"?',
+        msgKeyRequired: 'Key is required', msgFailed: 'Failed', msgError: 'Error', msgExists: 'exists', msgNetworkError: 'network error',
+        msgAccountsAdded: 'Added {n} accounts', msgAllFailed: 'All failed', msgPleaseEnterAccountInfo: 'Please enter account info',
+        msgInvalidFormat: 'invalid format', msgNameOrTokenEmpty: 'name or token is empty', msgNoValidAccounts: 'No valid accounts',
+        msgAccountAdded: 'Account added: {name}', msgFailedToAdd: 'Failed to add', msgLine: 'Line {n}'
+      }
+    };
 
     createApp({
       data() {
@@ -1216,7 +1322,8 @@
           barkSettings: { url: '', deviceKey: '', enabled: false, interval: 5, notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 },
           settingsError: '',
           settingsSuccess: '',
-          barkTesting: false
+          barkTesting: false,
+          lang: localStorage.getItem('zeabur_lang') || (navigator.language.startsWith('zh') ? 'zh' : 'en')
         };
       },
       async mounted() {
@@ -1269,6 +1376,7 @@
         if (this.refreshInterval) clearInterval(this.refreshInterval);
       },
       computed: {
+        t() { return i18n[this.lang] || i18n.en; },
         totalProjects() {
           let total = 0;
           for (const acc of this.accounts) {
@@ -1324,17 +1432,21 @@
           return map[status] || 'badge-default';
         },
         getStatusLabel(status) {
-          const map = { 'RUNNING': 'Running', 'SUSPENDED': 'Stopped', 'DEPLOYING': 'Deploying' };
+          const map = { 'RUNNING': this.t.statusRunning, 'SUSPENDED': this.t.statusStopped, 'DEPLOYING': this.t.statusDeploying };
           return map[status] || status;
+        },
+        toggleLang() {
+          this.lang = this.lang === 'zh' ? 'en' : 'zh';
+          localStorage.setItem('zeabur_lang', this.lang);
         },
         async setAdminPassword() {
           this.setPasswordError = '';
           if (!this.setPassword || this.setPassword.length < 6) {
-            this.setPasswordError = 'Password must be at least 6 characters';
+            this.setPasswordError = this.t.msgPasswordMin;
             return;
           }
           if (this.setPassword !== this.setPasswordConfirm) {
-            this.setPasswordError = 'Passwords do not match';
+            this.setPasswordError = this.t.msgPasswordsNoMatch;
             return;
           }
           try {
@@ -1349,10 +1461,10 @@
               this.showSetPasswordModal = false;
               await this.verifyPassword();
             } else {
-              this.setPasswordError = result.error || 'Failed to set password';
+              this.setPasswordError = result.error || this.t.msgFailedSetPassword;
             }
           } catch (error) {
-            this.setPasswordError = 'Error: ' + error.message;
+            this.setPasswordError = this.t.msgError + ': ' + error.message;
           }
         },
         async verifyPassword() {
@@ -1373,10 +1485,10 @@
               this.fetchData();
               this.refreshInterval = setInterval(() => this.fetchData(), 90000);
             } else {
-              this.loginError = 'Incorrect password';
+              this.loginError = this.t.msgIncorrectPassword;
             }
           } catch (error) {
-            this.loginError = 'Error: ' + error.message;
+            this.loginError = this.t.msgError + ': ' + error.message;
           }
         },
         maskEmail(email) {
@@ -1474,7 +1586,7 @@
         async batchAddAccounts() {
           this.batchAddError = '';
           this.batchAddSuccess = '';
-          if (!this.batchAccounts.trim()) { this.batchAddError = 'Please enter account info'; return; }
+          if (!this.batchAccounts.trim()) { this.batchAddError = this.t.msgPleaseEnterAccountInfo; return; }
           const lines = this.batchAccounts.trim().split('\n');
           const accounts = [];
           for (let i = 0; i < lines.length; i++) {
@@ -1494,13 +1606,13 @@
               name = parts[0].trim();
               token = parts.slice(1).join('：').trim();
             } else {
-              this.batchAddError = `Line ${i + 1}: invalid format`;
+              this.batchAddError = this.t.msgLine.replace('{n}', i + 1) + ': ' + this.t.msgInvalidFormat;
               return;
             }
-            if (!name || !token) { this.batchAddError = `Line ${i + 1}: name or token is empty`; return; }
+            if (!name || !token) { this.batchAddError = this.t.msgLine.replace('{n}', i + 1) + ': ' + this.t.msgNameOrTokenEmpty; return; }
             accounts.push({ name, token });
           }
-          if (accounts.length === 0) { this.batchAddError = 'No valid accounts'; return; }
+          if (accounts.length === 0) { this.batchAddError = this.t.msgNoValidAccounts; return; }
           this.addingAccount = true;
           let successCount = 0;
           let failedAccounts = [];
@@ -1518,31 +1630,31 @@
                   this.managedAccounts.push({ name: account.name, token: account.token, email: data.userData.email, username: data.userData.username });
                   successCount++;
                 } else {
-                  failedAccounts.push(`${account.name} (exists)`);
+                  failedAccounts.push(`${account.name} (${this.t.msgExists})`);
                 }
               } else {
-                failedAccounts.push(`${account.name} (${data.error || 'failed'})`);
+                failedAccounts.push(`${account.name} (${data.error || this.t.msgFailed})`);
               }
             } catch (error) {
-              failedAccounts.push(`${account.name} (network error)`);
+              failedAccounts.push(`${account.name} (${this.t.msgNetworkError})`);
             }
           }
           this.addingAccount = false;
           if (successCount > 0) { await this.saveManagedAccounts(); this.fetchData(); }
           if (successCount > 0 && failedAccounts.length === 0) {
-            this.batchAddSuccess = `Added ${successCount} accounts`;
+            this.batchAddSuccess = this.t.msgAccountsAdded.replace('{n}', successCount);
             this.batchAccounts = '';
           } else if (successCount > 0) {
-            this.batchAddSuccess = `Added ${successCount} accounts`;
-            this.batchAddError = `Failed: ${failedAccounts.join(', ')}`;
+            this.batchAddSuccess = this.t.msgAccountsAdded.replace('{n}', successCount);
+            this.batchAddError = this.t.msgFailed + ': ' + failedAccounts.join(', ');
           } else {
-            this.batchAddError = `All failed: ${failedAccounts.join(', ')}`;
+            this.batchAddError = this.t.msgAllFailed + ': ' + failedAccounts.join(', ');
           }
           setTimeout(() => { this.batchAddSuccess = ''; if (successCount > 0 && failedAccounts.length === 0) this.batchAddError = ''; }, 3000);
         },
         async addAccountToList() {
           if (!this.newAccount.name || !this.newAccount.token) {
-            this.addAccountError = 'Name and API Token are required';
+            this.addAccountError = this.t.msgNameTokenRequired;
             return;
           }
           this.addingAccount = true;
@@ -1562,21 +1674,21 @@
                 email: data.userData.email, username: data.userData.username
               });
               this.saveManagedAccounts();
-              this.addAccountSuccess = `Account added: ${data.userData.username}`;
+              this.addAccountSuccess = this.t.msgAccountAdded.replace('{name}', data.userData.username);
               this.newAccount = { name: '', token: '', balance: '' };
               setTimeout(() => { this.fetchData(); this.addAccountSuccess = ''; }, 1500);
             } else {
-              this.addAccountError = data.error || 'Failed to add';
+              this.addAccountError = data.error || this.t.msgFailedToAdd;
             }
           } catch (error) {
-            this.addAccountError = 'Network error: ' + error.message;
+            this.addAccountError = this.t.msgNetworkError + ': ' + error.message;
           } finally {
             this.addingAccount = false;
           }
         },
         async removeAccount(index) {
           const accountName = this.managedAccounts[index].name;
-          const password = prompt(`Enter admin password to remove "${accountName}":`);
+          const password = prompt(this.t.msgEnterPasswordToRemove.replace('{name}', accountName));
           if (!password) return;
           try {
             const response = await fetch('/api/verify-password', {
@@ -1590,10 +1702,10 @@
               await this.saveManagedAccounts();
               this.fetchData();
             } else {
-              alert('Incorrect password');
+              alert(this.t.msgIncorrectPassword);
             }
           } catch (error) {
-            alert('Error: ' + error.message);
+            alert(this.t.msgError + ': ' + error.message);
           }
         },
         closeManageModal() {
@@ -1603,7 +1715,7 @@
           this.addAccountSuccess = '';
         },
         clearCache() {
-          if (confirm('Clear all cached data? This will remove locally stored managed accounts and cost data. Environment accounts will be preserved.')) {
+          if (confirm(this.t.msgClearCacheConfirm)) {
             this.managedAccounts = [];
             this.projectCosts = {};
             localStorage.removeItem('zeabur_accounts');
@@ -1619,37 +1731,37 @@
           return this.expandedAccounts[accountName] !== false;
         },
         async pauseService(account, project, service) {
-          if (!confirm(`Pause service "${service.name}"?`)) return;
+          if (!confirm(this.t.msgPauseConfirm.replace('{name}', service.name))) return;
           try {
             const environmentId = project.environments && project.environments[0] ? project.environments[0]._id : null;
-            if (!environmentId) { alert('Cannot get environment ID'); return; }
+            if (!environmentId) { alert(this.t.msgCantGetEnvId); return; }
             const allAccounts = [...this.envAccounts, ...this.managedAccounts];
             const accountData = allAccounts.find(acc => acc.name === account.name);
-            if (!accountData || !accountData.token) { alert('Cannot get account token'); return; }
+            if (!accountData || !accountData.token) { alert(this.t.msgCantGetToken); return; }
             const response = await fetch('/api/service/pause', {
               method: 'POST', headers: this.getAuthHeaders(),
               body: JSON.stringify({ token: accountData.token, serviceId: service._id, environmentId })
             });
             const result = await response.json();
-            if (result.success) { this.fetchData(); } else { alert('Failed: ' + (result.error || JSON.stringify(result))); }
-          } catch (error) { alert('Error: ' + error.message); }
+            if (result.success) { this.fetchData(); } else { alert(this.t.msgFailed + ': ' + (result.error || JSON.stringify(result))); }
+          } catch (error) { alert(this.t.msgError + ': ' + error.message); }
         },
         async restartService(account, project, service) {
-          const action = service.status === 'SUSPENDED' ? 'start' : 'restart';
-          if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} service "${service.name}"?`)) return;
+          const action = service.status === 'SUSPENDED' ? this.t.start : this.t.restart;
+          if (!confirm(this.t.msgConfirmAction.replace('{action}', action).replace('{name}', service.name))) return;
           try {
             const environmentId = project.environments && project.environments[0] ? project.environments[0]._id : null;
-            if (!environmentId) { alert('Cannot get environment ID'); return; }
+            if (!environmentId) { alert(this.t.msgCantGetEnvId); return; }
             const allAccounts = [...this.envAccounts, ...this.managedAccounts];
             const accountData = allAccounts.find(acc => acc.name === account.name);
-            if (!accountData || !accountData.token) { alert('Cannot get account token'); return; }
+            if (!accountData || !accountData.token) { alert(this.t.msgCantGetToken); return; }
             const response = await fetch('/api/service/restart', {
               method: 'POST', headers: this.getAuthHeaders(),
               body: JSON.stringify({ token: accountData.token, serviceId: service._id, environmentId })
             });
             const result = await response.json();
-            if (result.success) { this.fetchData(); } else { alert(`Failed: ` + (result.error || JSON.stringify(result))); }
-          } catch (error) { alert('Error: ' + error.message); }
+            if (result.success) { this.fetchData(); } else { alert(this.t.msgFailed + ': ' + (result.error || JSON.stringify(result))); }
+          } catch (error) { alert(this.t.msgError + ': ' + error.message); }
         },
         async showServiceLogs(account, project, service) {
           this.logsModalTitle = service.name;
@@ -1659,10 +1771,10 @@
           this.showLogsModal = true;
           try {
             const environmentId = project.environments && project.environments[0] ? project.environments[0]._id : null;
-            if (!environmentId) { this.logsContent = 'Cannot get environment ID'; this.logsLoading = false; return; }
+            if (!environmentId) { this.logsContent = this.t.msgCantGetEnvId; this.logsLoading = false; return; }
             const allAccounts = [...this.envAccounts, ...this.managedAccounts];
             const accountData = allAccounts.find(acc => acc.name === account.name);
-            if (!accountData || !accountData.token) { this.logsContent = 'Cannot get account token'; this.logsLoading = false; return; }
+            if (!accountData || !accountData.token) { this.logsContent = this.t.msgCantGetToken; this.logsLoading = false; return; }
             const response = await fetch('/api/service/logs', {
               method: 'POST', headers: this.getAuthHeaders(),
               body: JSON.stringify({ token: accountData.token, serviceId: service._id, environmentId, projectId: project._id, limit: 200 })
@@ -1672,10 +1784,10 @@
               this.logsContent = result.logs.map(log => '[' + new Date(log.timestamp).toLocaleString('zh-CN') + '] ' + log.message).join('\n');
               this.logsModalInfo.count = result.count;
             } else {
-              this.logsContent = 'Failed to load logs: ' + (result.error || 'Unknown error');
+              this.logsContent = this.t.msgFailed + ': ' + (result.error || '');
             }
           } catch (error) {
-            this.logsContent = 'Failed to load logs: ' + error.message;
+            this.logsContent = this.t.msgFailed + ': ' + error.message;
           } finally {
             this.logsLoading = false;
           }
@@ -1711,12 +1823,12 @@
         },
         async saveProjectName(account, project) {
           if (!project.isEditing) return;
-          if (!project.editingName || project.editingName.trim() === '') { alert('Project name cannot be empty'); return; }
+          if (!project.editingName || project.editingName.trim() === '') { alert(this.t.msgProjectNameEmpty); return; }
           if (project.editingName === project.name) { this.cancelEditProjectName(project); return; }
           try {
             const allAccounts = [...this.envAccounts, ...this.managedAccounts];
             const accountData = allAccounts.find(acc => acc.name === account.name);
-            if (!accountData) { alert('Cannot find account info'); return; }
+            if (!accountData) { alert(this.t.msgCantFindAccount); return; }
             const response = await fetch('/api/project/rename', {
               method: 'POST', headers: this.getAuthHeaders(),
               body: JSON.stringify({ accountId: accountData.id || accountData.name, projectId: project._id, newName: project.editingName.trim() })
@@ -1726,14 +1838,14 @@
               project.name = project.editingName.trim();
               this.cancelEditProjectName(project);
             } else {
-              alert('Failed: ' + (result.error || 'Unknown error'));
+              alert(this.t.msgFailed + ': ' + (result.error || ''));
             }
-          } catch (error) { alert('Error: ' + error.message); }
+          } catch (error) { alert(this.t.msgError + ': ' + error.message); }
         },
         async copySecret() {
           try {
             await navigator.clipboard.writeText(this.suggestedSecret);
-            alert('Key copied to clipboard. Follow the setup steps then refresh.');
+            alert(this.t.msgKeyCopied);
           } catch (error) {
             const textArea = document.createElement('textarea');
             textArea.value = this.suggestedSecret;
@@ -1741,7 +1853,7 @@
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            alert('Key copied to clipboard. Follow the setup steps then refresh.');
+            alert(this.t.msgKeyCopied);
           }
         },
         async fetchVersionInfo() {
@@ -1790,12 +1902,12 @@
           const domain = input?.value?.trim();
           if (!domain) return;
           const token = this.getAccountToken(account.name);
-          if (!token) { alert('Cannot get account token'); return; }
+          if (!token) { alert(this.t.msgCantGetToken); return; }
           const environmentId = project.environments?.[0]?._id;
-          if (!environmentId) { alert('Cannot get environment ID'); return; }
+          if (!environmentId) { alert(this.t.msgCantGetEnvId); return; }
           // Find the first service in the project to bind domain to
           const service = project.services?.[0];
-          if (!service) { alert('No service in project'); return; }
+          if (!service) { alert(this.t.msgNoServiceInProject); return; }
           try {
             const response = await fetch('/api/service/domain/add', {
               method: 'POST', headers: this.getAuthHeaders(),
@@ -1806,15 +1918,15 @@
               input.value = '';
               this.fetchData();
             } else {
-              alert('Failed: ' + (result.error || result.details));
+              alert(this.t.msgFailed + ': ' + (result.error || result.details));
             }
-          } catch (error) { alert('Error: ' + error.message); }
+          } catch (error) { alert(this.t.msgError + ': ' + error.message); }
         },
         async removeDomain(account, domainInfo) {
-          if (!domainInfo._id) { alert('Cannot identify domain'); return; }
-          if (!confirm(`Remove domain "${domainInfo.domain}"?`)) return;
+          if (!domainInfo._id) { alert(this.t.msgCantGetEnvId); return; }
+          if (!confirm(this.t.msgRemoveDomainConfirm.replace('{name}', domainInfo.domain))) return;
           const token = this.getAccountToken(account.name);
-          if (!token) { alert('Cannot get account token'); return; }
+          if (!token) { alert(this.t.msgCantGetToken); return; }
           try {
             const response = await fetch('/api/service/domain/remove', {
               method: 'POST', headers: this.getAuthHeaders(),
@@ -1822,16 +1934,16 @@
             });
             const result = await response.json();
             if (result.success) { this.fetchData(); }
-            else { alert('Failed: ' + (result.error || result.details)); }
-          } catch (error) { alert('Error: ' + error.message); }
+            else { alert(this.t.msgFailed + ': ' + (result.error || result.details)); }
+          } catch (error) { alert(this.t.msgError + ': ' + error.message); }
         },
 
         // ============ 环境变量 ============
         async showEnvVars(account, project, service) {
           const token = this.getAccountToken(account.name);
-          if (!token) { alert('Cannot get account token'); return; }
+          if (!token) { alert(this.t.msgCantGetToken); return; }
           const environmentId = project.environments?.[0]?._id;
-          if (!environmentId) { alert('Cannot get environment ID'); return; }
+          if (!environmentId) { alert(this.t.msgCantGetEnvId); return; }
           this.envContext = { token, serviceId: service._id, environmentId };
           this.envModalService = `${service.name} (${project.name})`;
           this.envVarsList = [];
@@ -1849,7 +1961,7 @@
             if (result.success) {
               this.envVarsList = (result.variables || []).map(v => ({ ...v, masked: true, editing: false, editValue: '' }));
             } else {
-              this.envError = result.error || 'Failed to load';
+              this.envError = result.error || this.t.msgFailed;
             }
           } catch (error) { this.envError = error.message; }
           finally { this.envLoading = false; }
@@ -1866,7 +1978,7 @@
           } catch (error) { this.envError = error.message; }
         },
         async deleteEnvVar(key) {
-          if (!confirm(`Delete env var "${key}"?`)) return;
+          if (!confirm(this.t.msgDeleteEnvVarConfirm.replace('{name}', key))) return;
           try {
             const response = await fetch('/api/service/env/delete', {
               method: 'POST', headers: this.getAuthHeaders(),
@@ -1878,7 +1990,7 @@
           } catch (error) { this.envError = error.message; }
         },
         async addEnvVar() {
-          if (!this.newEnvKey.trim()) { this.envError = 'Key is required'; return; }
+          if (!this.newEnvKey.trim()) { this.envError = this.t.msgKeyRequired; return; }
           this.envError = '';
           try {
             const response = await fetch('/api/service/env/update', {
@@ -1897,9 +2009,9 @@
         // ============ 构建日志 ============
         async showBuildLogs(account, project, service) {
           const token = this.getAccountToken(account.name);
-          if (!token) { alert('Cannot get account token'); return; }
+          if (!token) { alert(this.t.msgCantGetToken); return; }
           const environmentId = project.environments?.[0]?._id;
-          if (!environmentId) { alert('Cannot get environment ID'); return; }
+          if (!environmentId) { alert(this.t.msgCantGetEnvId); return; }
           this.buildContext = { token, serviceId: service._id, environmentId };
           this.buildModalService = `${service.name} (${project.name})`;
           this.deploymentsList = [];
@@ -1913,8 +2025,8 @@
             });
             const result = await response.json();
             if (result.success) { this.deploymentsList = result.deployments || []; }
-            else { alert(result.error); }
-          } catch (error) { alert(error.message); }
+            else { alert(this.t.msgFailed + ': ' + result.error); }
+          } catch (error) { alert(this.t.msgError + ': ' + error.message); }
           finally { this.buildLoading = false; }
         },
         async fetchBuildLog(deploymentId) {
@@ -1928,11 +2040,11 @@
             });
             const result = await response.json();
             if (result.success && result.logs) {
-              this.buildLogsContent = result.logs.map(l => '[' + new Date(l.timestamp).toLocaleString('zh-CN') + '] ' + l.message).join('\n') || 'No build logs';
+              this.buildLogsContent = result.logs.map(l => '[' + new Date(l.timestamp).toLocaleString('zh-CN') + '] ' + l.message).join('\n') || this.t.noLogs;
             } else {
-              this.buildLogsContent = 'Failed: ' + (result.error || 'Unknown error');
+              this.buildLogsContent = this.t.msgFailed + ': ' + (result.error || '');
             }
-          } catch (error) { this.buildLogsContent = 'Error: ' + error.message; }
+          } catch (error) { this.buildLogsContent = this.t.msgError + ': ' + error.message; }
           finally { this.buildLoading = false; }
         },
 
@@ -2005,13 +2117,13 @@
               body: JSON.stringify(this.barkSettings)
             });
             const result = await response.json();
-            if (result.success) { this.settingsSuccess = 'Settings saved'; setTimeout(() => { this.settingsSuccess = ''; }, 2000); }
+            if (result.success) { this.settingsSuccess = this.t.settingsSaved; setTimeout(() => { this.settingsSuccess = ''; }, 2000); }
             else { this.settingsError = result.error; }
           } catch (error) { this.settingsError = error.message; }
         },
         async testBark() {
           if (!this.barkSettings.url || !this.barkSettings.deviceKey) {
-            this.settingsError = 'Please fill in URL and Device Key first';
+            this.settingsError = this.t.fillUrlAndKey;
             return;
           }
           this.barkTesting = true;
