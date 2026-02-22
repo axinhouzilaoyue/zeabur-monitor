@@ -361,123 +361,6 @@ async function fetchUsageData(token, userID, projects = []) {
   };
 }
 
-// 临时账号API - 获取账号信息
-app.post('/api/temp-accounts', requireAuth, express.json(), async (req, res) => {
-  const { accounts } = req.body;
-  
-  console.log('📥 收到账号请求:', accounts?.length, '个账号');
-  
-  if (!accounts || !Array.isArray(accounts)) {
-    return res.status(400).json({ error: '无效的账号列表' });
-  }
-  
-  const results = await Promise.all(accounts.map(async (account) => {
-    try {
-      console.log(`🔍 正在获取账号 [${account.name}] 的数据...`);
-      const { user, projects, aihub } = await fetchAccountData(account.token);
-      console.log(`   API 返回的 credit: ${user.credit}`);
-      
-      // 获取用量数据
-      let usageData = { totalUsage: 0, freeQuotaRemaining: 5, freeQuotaLimit: 5 };
-      if (user._id) {
-        try {
-          usageData = await fetchUsageData(account.token, user._id, projects);
-          console.log(`💰 [${account.name}] 用量: $${usageData.totalUsage.toFixed(2)}, 剩余: $${usageData.freeQuotaRemaining.toFixed(2)}`);
-        } catch (e) {
-          console.log(`⚠️ [${account.name}] 获取用量失败:`, e.message);
-        }
-      }
-      
-      // 计算剩余额度并转换为 credit（以分为单位）
-      const creditInCents = Math.round(usageData.freeQuotaRemaining * 100);
-      
-      return {
-        name: account.name,
-        success: true,
-        data: {
-          ...user,
-          credit: creditInCents, // 使用计算的剩余额度
-          totalUsage: usageData.totalUsage,
-          freeQuotaLimit: usageData.freeQuotaLimit
-        },
-        aihub: aihub
-      };
-    } catch (error) {
-      console.error(`❌ [${account.name}] 错误:`, error.message);
-      return {
-        name: account.name,
-        success: false,
-        error: error.message
-      };
-    }
-  }));
-  
-  console.log('📤 返回结果:', results.length, '个账号');
-  res.json(results);
-});
-
-// 临时账号API - 获取项目信息
-app.post('/api/temp-projects', requireAuth, express.json(), async (req, res) => {
-  const { accounts } = req.body;
-  
-  console.log('📥 收到项目请求:', accounts?.length, '个账号');
-  
-  if (!accounts || !Array.isArray(accounts)) {
-    return res.status(400).json({ error: '无效的账号列表' });
-  }
-  
-  const results = await Promise.all(accounts.map(async (account) => {
-    try {
-      console.log(`🔍 正在获取账号 [${account.name}] 的项目...`);
-      const { user, projects } = await fetchAccountData(account.token);
-      
-      // 获取用量数据
-      let projectCosts = {};
-      if (user._id) {
-        try {
-          const usageData = await fetchUsageData(account.token, user._id, projects);
-          projectCosts = usageData.projectCosts;
-        } catch (e) {
-          console.log(`⚠️ [${account.name}] 获取用量失败:`, e.message);
-        }
-      }
-      
-      console.log(`📦 [${account.name}] 找到 ${projects.length} 个项目`);
-      
-      const projectsWithCost = projects.map(project => {
-        const cost = projectCosts[project._id] || 0;
-        console.log(`  - ${project.name}: $${cost.toFixed(2)}`);
-        
-        return {
-          _id: project._id,
-          name: project.name,
-          region: project.region?.name || 'Unknown',
-          environments: project.environments || [],
-          services: project.services || [],
-          cost: cost,
-          hasCostData: cost > 0
-        };
-      });
-      
-      return {
-        name: account.name,
-        success: true,
-        projects: projectsWithCost
-      };
-    } catch (error) {
-      console.error(`❌ [${account.name}] 错误:`, error.message);
-      return {
-        name: account.name,
-        success: false,
-        error: error.message
-      };
-    }
-  }));
-  
-  console.log('📤 返回项目结果');
-  res.json(results);
-});
-
 // 合并端点 - 一次请求返回账号信息和项目数据（减少 50% GraphQL 调用）
 app.post('/api/dashboard-data', requireAuth, express.json(), async (req, res) => {
   const { accounts } = req.body;
@@ -551,8 +434,7 @@ app.post('/api/validate-account', requireAuth, express.json(), async (req, res) 
         success: true,
         message: '账号验证成功！',
         userData: user,
-        accountName,
-        apiToken
+        accountName
       });
     } else {
       res.status(400).json({ error: 'API Token 无效或没有权限' });
@@ -579,16 +461,12 @@ function getEnvAccounts() {
   }
 }
 
-// 检查是否已设置密码
 // 检查加密密钥是否已设置
 app.get('/api/check-encryption', (req, res) => {
-  const crypto = require('crypto');
-  // 生成一个随机密钥供用户使用
   const suggestedSecret = crypto.randomBytes(32).toString('hex');
-  
   res.json({
     isConfigured: ENCRYPTION_ENABLED,
-    suggestedSecret: suggestedSecret
+    suggestedSecret
   });
 });
 
@@ -702,24 +580,6 @@ app.post('/api/server-accounts', requireAuth, async (req, res) => {
   }
 });
 
-// 删除服务器账号
-app.delete('/api/server-accounts/:index', requireAuth, async (req, res) => {
-  const index = parseInt(req.params.index);
-  const accounts = loadServerAccounts();
-  
-  if (index >= 0 && index < accounts.length) {
-    const removed = accounts.splice(index, 1);
-    if (saveServerAccounts(accounts)) {
-      console.log(`🗑️ 删除账号: ${removed[0].name}`);
-      res.json({ success: true, message: '账号已删除' });
-    } else {
-      res.status(500).json({ error: '删除失败' });
-    }
-  } else {
-    res.status(404).json({ error: '账号不存在' });
-  }
-});
-
 // 暂停服务
 app.post('/api/service/pause', requireAuth, async (req, res) => {
   const { token, serviceId, environmentId } = req.body;
@@ -814,9 +674,7 @@ app.post('/api/service/logs', requireAuth, express.json(), async (req, res) => {
 // 重命名项目
 app.post('/api/project/rename', requireAuth, async (req, res) => {
   const { accountId, projectId, newName } = req.body;
-  
-  console.log(`📝 收到重命名请求: accountId=${accountId}, projectId=${projectId}, newName=${newName}`);
-  
+
   if (!accountId || !projectId || !newName) {
     return res.status(400).json({ error: '缺少必要参数' });
   }
@@ -833,20 +691,14 @@ app.post('/api/project/rename', requireAuth, async (req, res) => {
     }
     
     const mutation = `mutation($id: ObjectID!, $name: String!) { renameProject(_id: $id, name: $name) }`;
-    console.log(`🔍 发送 GraphQL mutation (projectId=${projectId}, newName=${newName})`);
-
     const result = await queryZeabur(account.token, mutation, { id: projectId, name: newName });
-    console.log(`📥 API 响应:`, JSON.stringify(result, null, 2));
-    
+
     if (result.data?.renameProject) {
-      console.log(`✅ 项目已重命名: ${newName}`);
       res.json({ success: true, message: '项目已重命名' });
     } else {
-      console.log(`❌ 重命名失败:`, result);
       res.status(400).json({ error: '重命名失败', details: result });
     }
   } catch (error) {
-    console.log(`❌ 异常:`, error);
     res.status(500).json({ error: '重命名项目失败: ' + error.message });
   }
 });
