@@ -46,6 +46,46 @@
       --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
       --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
       --shadow-glow: 0 0 20px rgba(124,92,252,0.15);
+      --grid-line: rgba(124,92,252,0.03);
+      --title-gradient: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+      --modal-overlay: rgba(0,0,0,0.7);
+    }
+
+    /* Light theme */
+    :root[data-theme="light"] {
+      --bg-primary: #f4f5f7;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8f8fb;
+      --bg-elevated: #f0f1f4;
+      --border-color: rgba(0,0,0,0.08);
+      --border-hover: rgba(0,0,0,0.16);
+      --text-primary: #1a1a2e;
+      --text-secondary: #555570;
+      --text-muted: #8e8ea8;
+      --accent: #6d4aed;
+      --accent-hover: #5b38d6;
+      --accent-subtle: rgba(109,74,237,0.07);
+      --accent-border: rgba(109,74,237,0.18);
+      --green: #16a34a;
+      --green-bg: rgba(22,163,74,0.07);
+      --green-border: rgba(22,163,74,0.15);
+      --red: #dc2626;
+      --red-bg: rgba(220,38,38,0.06);
+      --red-border: rgba(220,38,38,0.12);
+      --yellow: #b45309;
+      --yellow-bg: rgba(180,83,9,0.06);
+      --yellow-border: rgba(180,83,9,0.12);
+      --blue: #2563eb;
+      --blue-bg: rgba(37,99,235,0.06);
+      --blue-border: rgba(37,99,235,0.12);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.1);
+      --shadow-glow: 0 0 20px rgba(109,74,237,0.1);
+      --grid-line: rgba(109,74,237,0.04);
+      --title-gradient: linear-gradient(135deg, #1a1a2e 0%, #6d4aed 100%);
+      --modal-overlay: rgba(0,0,0,0.35);
     }
 
     body {
@@ -62,8 +102,8 @@
       position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(124,92,252,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(124,92,252,0.03) 1px, transparent 1px);
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
       background-size: 60px 60px;
       pointer-events: none;
       z-index: 0;
@@ -91,9 +131,8 @@
     .page-title {
       font-size: 24px;
       font-weight: 800;
-      color: #fff;
       letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+      background: var(--title-gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -222,7 +261,7 @@
     .stat-value {
       font-size: 28px;
       font-weight: 800;
-      color: #fff;
+      color: var(--text-primary);
       letter-spacing: -0.5px;
       font-variant-numeric: tabular-nums;
     }
@@ -232,7 +271,7 @@
     .account-name {
       font-size: 15px;
       font-weight: 600;
-      color: #fff;
+      color: var(--text-primary);
     }
     .account-email {
       font-size: 13px;
@@ -480,7 +519,7 @@
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: var(--modal-overlay);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       display: flex;
@@ -516,7 +555,7 @@
     .modal-title {
       font-size: 18px;
       font-weight: 700;
-      color: #fff;
+      color: var(--text-primary);
     }
     .modal-subtitle {
       font-size: 13px;
@@ -718,7 +757,7 @@
       font-weight: 800;
       margin-bottom: 8px;
       text-align: center;
-      color: #fff;
+      color: var(--text-primary);
     }
     .setup-subtitle {
       font-size: 14px;
@@ -781,13 +820,17 @@
       box-shadow: 0 0 6px rgba(124,92,252,0.4);
     }
 
-    /* Language Toggle */
-    .lang-toggle {
+    /* Top-right toolbar */
+    .top-toolbar {
       position: fixed;
       top: 16px;
       right: 16px;
       z-index: 3000;
-      padding: 7px 16px;
+      display: flex;
+      gap: 6px;
+    }
+    .toolbar-btn {
+      padding: 7px 14px;
       border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
       background: var(--bg-card);
@@ -796,11 +839,10 @@
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       font-family: inherit;
+      line-height: 1.2;
     }
-    .lang-toggle:hover {
+    .toolbar-btn:hover {
       background: var(--bg-card-hover);
       border-color: var(--accent-border);
       color: var(--accent);
@@ -837,7 +879,7 @@
 
     /* Settings form */
     .settings-section { margin-bottom: 24px; }
-    .settings-title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .settings-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .settings-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
     .settings-row label { font-size: 13px; font-weight: 500; color: var(--text-secondary); min-width: 120px; flex-shrink: 0; }
     .toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
@@ -1087,8 +1129,11 @@
 </head>
 <body>
   <div id="app">
-    <!-- Language Toggle -->
-    <button class="lang-toggle" @click="toggleLang">{{ lang === 'zh' ? 'EN' : '中文' }}</button>
+    <!-- Top Toolbar -->
+    <div class="top-toolbar">
+      <button class="toolbar-btn" @click="toggleTheme" :title="theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'">{{ theme === 'dark' ? '☀️' : '🌙' }}</button>
+      <button class="toolbar-btn" @click="toggleLang">{{ lang === 'zh' ? 'EN' : '中文' }}</button>
+    </div>
 
     <!-- Encryption Setup -->
     <div v-if="showEncryptionWarning">
@@ -1797,10 +1842,14 @@
           settingsSuccess: '',
           barkTesting: false,
           activeDropdown: null,
+          theme: localStorage.getItem('zeabur_theme') || 'dark',
           lang: localStorage.getItem('zeabur_lang') || (navigator.language.startsWith('zh') ? 'zh' : 'en')
         };
       },
       async mounted() {
+        // Apply saved theme
+        document.documentElement.setAttribute('data-theme', this.theme);
+
         this.fetchVersionInfo();
 
         try {
@@ -1908,6 +1957,11 @@
         getStatusLabel(status) {
           const map = { 'RUNNING': this.t.statusRunning, 'SUSPENDED': this.t.statusStopped, 'DEPLOYING': this.t.statusDeploying };
           return map[status] || status;
+        },
+        toggleTheme() {
+          this.theme = this.theme === 'dark' ? 'light' : 'dark';
+          localStorage.setItem('zeabur_theme', this.theme);
+          document.documentElement.setAttribute('data-theme', this.theme);
         },
         toggleLang() {
           this.lang = this.lang === 'zh' ? 'en' : 'zh';
