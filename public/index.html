@@ -1545,21 +1545,15 @@
           try {
             const allAccounts = [...this.envAccounts, ...this.managedAccounts];
             if (allAccounts.length > 0) {
-              const accountsWithoutManualBalance = allAccounts.map(acc => ({ ...acc, balance: null }));
-              const [accountsRes, projectsRes] = await Promise.all([
-                fetch('/api/temp-accounts', {
-                  method: 'POST', headers: this.getAuthHeaders(),
-                  body: JSON.stringify({ accounts: accountsWithoutManualBalance })
-                }).then(r => r.json()),
-                fetch('/api/temp-projects', {
-                  method: 'POST', headers: this.getAuthHeaders(),
-                  body: JSON.stringify({ accounts: accountsWithoutManualBalance, projectCosts: {} })
-                }).then(r => r.json())
-              ]);
-              this.accounts = accountsRes.map((account, index) => {
-                const projectData = projectsRes[index];
-                return { ...account, projects: projectData.projects || [] };
-              });
+              const accountsPayload = allAccounts.map(acc => ({ ...acc, balance: null }));
+              const dashboardRes = await fetch('/api/dashboard-data', {
+                method: 'POST', headers: this.getAuthHeaders(),
+                body: JSON.stringify({ accounts: accountsPayload })
+              }).then(r => r.json());
+              this.accounts = dashboardRes.map(item => ({
+                ...item,
+                projects: item.projects || []
+              }));
             } else {
               const [accountsRes, projectsRes] = await Promise.all([
                 fetch('/api/accounts').then(r => r.json()),

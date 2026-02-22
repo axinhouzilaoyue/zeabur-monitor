@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY server.js crypto-utils.js generate-secret.js ./
+COPY server.js crypto-utils.js ./
 COPY public/ ./public/
 
 RUN mkdir -p /app/data

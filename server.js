@@ -5,6 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { encryptData, decryptData } = require('./crypto-utils');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,10 +20,11 @@ app.use(express.json());
 // Session管理 - 存储在内存中,重启服务器后清空
 const activeSessions = new Map(); // { token: { createdAt: timestamp } }
 const SESSION_DURATION = 10 * 24 * 60 * 60 * 1000; // 10天
+const MAX_SESSIONS = 100; // Session数量上限，防止内存泄漏
 
-// 生成随机token
+// 生成安全随机token
 function generateToken() {
-  return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+  return 'session_' + crypto.randomBytes(24).toString('hex');
 }
 
 // 清理过期session
@@ -35,8 +37,23 @@ function cleanExpiredSessions() {
   }
 }
 
-// 每小时清理一次过期session
-setInterval(cleanExpiredSessions, 60 * 60 * 1000);
+// 超出上限时淘汰最旧的session
+function evictOldestSessions() {
+  while (activeSessions.size >= MAX_SESSIONS) {
+    let oldestToken = null, oldestTime = Infinity;
+    for (const [token, session] of activeSessions.entries()) {
+      if (session.createdAt < oldestTime) {
+        oldestTime = session.createdAt;
+        oldestToken = token;
+      }
+    }
+    if (oldestToken) activeSessions.delete(oldestToken);
+    else break;
+  }
+}
+
+// 每15分钟清理一次过期session
+setInterval(cleanExpiredSessions, 15 * 60 * 1000);
 
 // 密码验证中间件
 function requireAuth(req, res, next) {
@@ -72,16 +89,22 @@ const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 const PASSWORD_FILE = path.join(DATA_DIR, 'password.json');
 const BARK_SETTINGS_FILE = path.join(DATA_DIR, 'bark-settings.json');
 
+// 文件 I/O 缓存（减少磁盘读取）
+let _cachedServerAccounts = undefined;
+let _cachedAdminPassword = undefined;
+let _cachedBarkSettings = undefined;
+
 // 读取服务器存储的账号
 function loadServerAccounts() {
+  if (_cachedServerAccounts !== undefined) return _cachedServerAccounts;
   try {
     if (fs.existsSync(ACCOUNTS_FILE)) {
       const data = fs.readFileSync(ACCOUNTS_FILE, 'utf8');
-      const accounts = JSON.parse(data);
-      
+      let accounts = JSON.parse(data);
+
       // 如果启用了加密,解密 Token
       if (ENCRYPTION_ENABLED) {
-        return accounts.map(account => {
+        accounts = accounts.map(account => {
           // 如果账号有加密的 Token,解密它
           if (account.encryptedToken) {
             try {
@@ -95,17 +118,20 @@ function loadServerAccounts() {
           return account;
         });
       }
-      
+
+      _cachedServerAccounts = accounts;
       return accounts;
     }
   } catch (e) {
     console.error('❌ 读取账号文件失败:', e.message);
   }
+  _cachedServerAccounts = [];
   return [];
 }
 
 // 保存账号到服务器
 function saveServerAccounts(accounts) {
+  _cachedServerAccounts = undefined; // 失效缓存
   try {
     let accountsToSave = accounts;
     
@@ -138,19 +164,23 @@ function saveServerAccounts(accounts) {
 
 // 读取管理员密码
 function loadAdminPassword() {
+  if (_cachedAdminPassword !== undefined) return _cachedAdminPassword;
   try {
     if (fs.existsSync(PASSWORD_FILE)) {
       const data = fs.readFileSync(PASSWORD_FILE, 'utf8');
-      return JSON.parse(data).password;
+      _cachedAdminPassword = JSON.parse(data).password;
+      return _cachedAdminPassword;
     }
   } catch (e) {
     console.error('❌ 读取密码文件失败:', e.message);
   }
+  _cachedAdminPassword = null;
   return null;
 }
 
 // 保存管理员密码
 function saveAdminPassword(password) {
+  _cachedAdminPassword = undefined; // 失效缓存
   try {
     fs.writeFileSync(PASSWORD_FILE, JSON.stringify({ password }, null, 2), 'utf8');
     return true;
@@ -160,8 +190,8 @@ function saveAdminPassword(password) {
   }
 }
 
-// Zeabur GraphQL 查询
-async function queryZeabur(token, query, variables = null) {
+// Zeabur GraphQL 查询（内部单次请求）
+function _queryZeaburOnce(token, query, variables = null) {
   return new Promise((resolve, reject) => {
     const payload = variables ? { query, variables } : { query };
     const data = JSON.stringify(payload);
@@ -197,6 +227,16 @@ async function queryZeabur(token, query, variables = null) {
     req.write(data);
     req.end();
   });
+}
+
+// 带重试的 GraphQL 查询（1次重试，1秒延迟）
+async function queryZeabur(token, query, variables = null) {
+  try {
+    return await _queryZeaburOnce(token, query, variables);
+  } catch (err) {
+    await new Promise(r => setTimeout(r, 1000));
+    return _queryZeaburOnce(token, query, variables);
+  }
 }
 
 // 获取用户信息和项目
@@ -275,7 +315,7 @@ async function fetchAccountData(token) {
   };
 }
 
-// 获取项目用量数据
+// 获取项目用量数据（复用 queryZeabur）
 async function fetchUsageData(token, userID, projects = []) {
   const now = new Date();
   const year = now.getFullYear();
@@ -285,94 +325,40 @@ async function fetchUsageData(token, userID, projects = []) {
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const toDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-  
-  const usageQuery = {
-    operationName: 'GetHeaderMonthlyUsage',
-    variables: {
-      from: fromDate,
-      to: toDate,
-      groupByEntity: 'PROJECT',
-      groupByTime: 'DAY',
-      groupByType: 'ALL',
-      userID: userID
-    },
-    query: `query GetHeaderMonthlyUsage($from: String!, $to: String!, $groupByEntity: GroupByEntity, $groupByTime: GroupByTime, $groupByType: GroupByType, $userID: ObjectID!) {
-      usages(
-        from: $from
-        to: $to
-        groupByEntity: $groupByEntity
-        groupByTime: $groupByTime
-        groupByType: $groupByType
-        userID: $userID
-      ) {
-        categories
-        data {
-          id
-          name
-          groupByEntity
-          usageOfEntity
-          __typename
-        }
-        __typename
-      }
-    }`
-  };
-  
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify(usageQuery);
-    const options = {
-      hostname: 'api.zeabur.com',
-      path: '/graphql',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data)
-      },
-      timeout: 10000
-    };
 
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try {
-          const result = JSON.parse(body);
-          const usages = result.data?.usages?.data || [];
-          
-          // 计算每个项目的总费用
-          const projectCosts = {};
-          let totalUsage = 0;
-          
-          usages.forEach(project => {
-            const projectTotal = project.usageOfEntity.reduce((a, b) => a + b, 0);
-            // 单个项目显示：向上取整到 $0.01（与 Zeabur 官方一致）
-            const displayCost = projectTotal > 0 ? Math.ceil(projectTotal * 100) / 100 : 0;
-            projectCosts[project.id] = displayCost;
-            // 总用量计算：使用原始费用（不取整，保证总余额准确）
-            totalUsage += projectTotal;
-          });
-          
-          resolve({
-            projectCosts,
-            totalUsage,
-            freeQuotaRemaining: 5 - totalUsage, // 免费额度 $5
-            freeQuotaLimit: 5
-          });
-        } catch (e) {
-          reject(new Error('Invalid JSON response'));
-        }
-      });
-    });
+  const usageGql = `query GetHeaderMonthlyUsage($from: String!, $to: String!, $groupByEntity: GroupByEntity, $groupByTime: GroupByTime, $groupByType: GroupByType, $userID: ObjectID!) {
+    usages(from: $from, to: $to, groupByEntity: $groupByEntity, groupByTime: $groupByTime, groupByType: $groupByType, userID: $userID) {
+      categories
+      data { id name groupByEntity usageOfEntity __typename }
+      __typename
+    }
+  }`;
 
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Request timeout'));
-    });
-    req.write(data);
-    req.end();
+  const result = await queryZeabur(token, usageGql, {
+    from: fromDate, to: toDate,
+    groupByEntity: 'PROJECT', groupByTime: 'DAY', groupByType: 'ALL',
+    userID
   });
+
+  const usages = result.data?.usages?.data || [];
+  const projectCosts = {};
+  let totalUsage = 0;
+
+  usages.forEach(project => {
+    const projectTotal = project.usageOfEntity.reduce((a, b) => a + b, 0);
+    // 单个项目显示：向上取整到 $0.01（与 Zeabur 官方一致）
+    const displayCost = projectTotal > 0 ? Math.ceil(projectTotal * 100) / 100 : 0;
+    projectCosts[project.id] = displayCost;
+    // 总用量计算：使用原始费用（不取整，保证总余额准确）
+    totalUsage += projectTotal;
+  });
+
+  return {
+    projectCosts,
+    totalUsage,
+    freeQuotaRemaining: 5 - totalUsage, // 免费额度 $5
+    freeQuotaLimit: 5
+  };
 }
 
 // 临时账号API - 获取账号信息
@@ -492,6 +478,63 @@ app.post('/api/temp-projects', requireAuth, express.json(), async (req, res) => 
   res.json(results);
 });
 
+// 合并端点 - 一次请求返回账号信息和项目数据（减少 50% GraphQL 调用）
+app.post('/api/dashboard-data', requireAuth, express.json(), async (req, res) => {
+  const { accounts } = req.body;
+
+  if (!accounts || !Array.isArray(accounts)) {
+    return res.status(400).json({ error: '无效的账号列表' });
+  }
+
+  const results = await Promise.all(accounts.map(async (account) => {
+    try {
+      const { user, projects, aihub } = await fetchAccountData(account.token);
+
+      let usageData = { totalUsage: 0, freeQuotaRemaining: 5, freeQuotaLimit: 5, projectCosts: {} };
+      if (user._id) {
+        try {
+          usageData = await fetchUsageData(account.token, user._id, projects);
+        } catch (e) {
+          console.log(`⚠️ [${account.name}] 获取用量失败:`, e.message);
+        }
+      }
+
+      const creditInCents = Math.round(usageData.freeQuotaRemaining * 100);
+
+      const projectsWithCost = projects.map(project => {
+        const cost = (usageData.projectCosts || {})[project._id] || 0;
+        return {
+          _id: project._id,
+          name: project.name,
+          region: project.region?.name || 'Unknown',
+          environments: project.environments || [],
+          services: project.services || [],
+          cost,
+          hasCostData: cost > 0
+        };
+      });
+
+      return {
+        name: account.name,
+        success: true,
+        data: {
+          ...user,
+          credit: creditInCents,
+          totalUsage: usageData.totalUsage,
+          freeQuotaLimit: usageData.freeQuotaLimit
+        },
+        aihub,
+        projects: projectsWithCost
+      };
+    } catch (error) {
+      console.error(`❌ [${account.name}] 错误:`, error.message);
+      return { name: account.name, success: false, error: error.message };
+    }
+  }));
+
+  res.json(results);
+});
+
 // 验证账号
 app.post('/api/validate-account', requireAuth, express.json(), async (req, res) => {
   const { accountName, apiToken } = req.body;
@@ -575,8 +618,34 @@ app.post('/api/set-password', (req, res) => {
   }
 });
 
+// 登录暴力破解防护（基于 IP 的简单限速）
+const loginAttempts = new Map(); // { ip: { count, firstAttempt } }
+const LOGIN_WINDOW = 15 * 60 * 1000; // 15分钟窗口
+const MAX_LOGIN_ATTEMPTS = 10;
+
+// 定期清理过期记录
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of loginAttempts.entries()) {
+    if (now - data.firstAttempt > LOGIN_WINDOW) loginAttempts.delete(ip);
+  }
+}, 5 * 60 * 1000);
+
 // 验证密码
 app.post('/api/verify-password', (req, res) => {
+  const clientIp = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  const attempts = loginAttempts.get(clientIp);
+
+  if (attempts) {
+    if (now - attempts.firstAttempt > LOGIN_WINDOW) {
+      loginAttempts.delete(clientIp);
+    } else if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
+      const retryAfter = Math.ceil((LOGIN_WINDOW - (now - attempts.firstAttempt)) / 1000);
+      return res.status(429).json({ success: false, error: `登录尝试过多，请 ${retryAfter} 秒后重试` });
+    }
+  }
+
   const { password } = req.body;
   const savedPassword = loadAdminPassword();
   
@@ -585,12 +654,22 @@ app.post('/api/verify-password', (req, res) => {
   }
   
   if (password === savedPassword) {
-    // 生成新的session token
+    // 登录成功，清除限速记录
+    loginAttempts.delete(clientIp);
+    // 生成新的session token（超限时淘汰最旧的）
+    evictOldestSessions();
     const sessionToken = generateToken();
     activeSessions.set(sessionToken, { createdAt: Date.now() });
     console.log(`✅ 用户登录成功，生成Session: ${sessionToken.substring(0, 20)}...`);
     res.json({ success: true, sessionToken });
   } else {
+    // 登录失败，记录尝试次数
+    const record = loginAttempts.get(clientIp);
+    if (record) {
+      record.count++;
+    } else {
+      loginAttempts.set(clientIp, { count: 1, firstAttempt: Date.now() });
+    }
     res.status(401).json({ success: false, error: '密码错误' });
   }
 });
@@ -834,17 +913,21 @@ app.get('/api/latest-version', async (req, res) => {
 // ============ Bark 通知系统 ============
 
 function loadBarkSettings() {
+  if (_cachedBarkSettings !== undefined) return _cachedBarkSettings;
   try {
     if (fs.existsSync(BARK_SETTINGS_FILE)) {
-      return JSON.parse(fs.readFileSync(BARK_SETTINGS_FILE, 'utf8'));
+      _cachedBarkSettings = JSON.parse(fs.readFileSync(BARK_SETTINGS_FILE, 'utf8'));
+      return _cachedBarkSettings;
     }
   } catch (e) {
     console.error('❌ 读取 Bark 配置失败:', e.message);
   }
-  return { url: '', deviceKey: '', enabled: false, interval: 5, notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 };
+  _cachedBarkSettings = { url: '', deviceKey: '', enabled: false, interval: 5, notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 };
+  return _cachedBarkSettings;
 }
 
 function saveBarkSettings(settings) {
+  _cachedBarkSettings = undefined; // 失效缓存
   try {
     fs.writeFileSync(BARK_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
     return true;
@@ -900,16 +983,22 @@ async function sendBarkNotification(title, body, group = 'zeabur-monitor') {
 // Bark 监控状态
 let previousServiceStates = new Map();
 let barkMonitorInterval = null;
+let barkMonitorRunning = false; // 防止重叠执行
 
 async function runBarkMonitor() {
+  if (barkMonitorRunning) return; // 上一轮未完成则跳过
+  barkMonitorRunning = true;
+
   const settings = loadBarkSettings();
-  if (!settings.enabled) return;
+  if (!settings.enabled) { barkMonitorRunning = false; return; }
+
+  const currentKeys = new Set(); // 追踪本轮活跃的 key
 
   try {
     const serverAccounts = loadServerAccounts();
     const envAccounts = getEnvAccounts();
     const allAccounts = [...envAccounts, ...serverAccounts];
-    if (allAccounts.length === 0) return;
+    if (allAccounts.length === 0) { barkMonitorRunning = false; return; }
 
     for (const account of allAccounts) {
       try {
@@ -921,6 +1010,7 @@ async function runBarkMonitor() {
             const usageData = await fetchUsageData(account.token, user._id, projects);
             const remainingCents = Math.round(usageData.freeQuotaRemaining * 100);
             const balanceKey = `balance_${account.name}`;
+            currentKeys.add(balanceKey);
             const prevBalance = previousServiceStates.get(balanceKey);
             if (remainingCents <= settings.balanceThreshold && prevBalance !== 'low') {
               await sendBarkNotification('Zeabur Balance Low', `Account "${account.name}" balance is $${(remainingCents / 100).toFixed(2)}, below threshold $${(settings.balanceThreshold / 100).toFixed(2)}`);
@@ -935,6 +1025,7 @@ async function runBarkMonitor() {
         for (const project of projects) {
           for (const service of (project.services || [])) {
             const stateKey = `service_${account.name}_${project._id}_${service._id}`;
+            currentKeys.add(stateKey);
             const prevStatus = previousServiceStates.get(stateKey);
 
             if (prevStatus && prevStatus !== service.status) {
@@ -952,8 +1043,15 @@ async function runBarkMonitor() {
         console.log(`⚠️ Bark 监控 [${account.name}] 失败:`, e.message);
       }
     }
+
+    // 清理已删除账号/服务的残留 key，防止内存泄漏
+    for (const key of previousServiceStates.keys()) {
+      if (!currentKeys.has(key)) previousServiceStates.delete(key);
+    }
   } catch (e) {
     console.error('❌ Bark 监控异常:', e.message);
+  } finally {
+    barkMonitorRunning = false;
   }
 }
 
