@@ -950,27 +950,53 @@
     /* Service Table */
     .service-table { border-top: 1px solid var(--border-color); }
 
-    .service-table-head {
-      display: grid;
-      grid-template-columns: 1.3fr 1.3fr 110px 110px 80px 160px;
-      gap: 8px;
-      padding: 8px 22px;
+    /* Project sub-header */
+    .project-subheader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 22px;
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-color);
+      gap: 12px;
     }
-    .service-table-head span {
-      font-size: 11px;
+    .project-subheader-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .project-subheader-name {
+      font-size: 13px;
       font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .project-subheader-meta {
+      font-size: 11px;
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
+      padding: 2px 8px;
+      background: var(--bg-elevated);
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .project-subheader-cost {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--blue);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
     }
 
     .service-table-row {
       display: grid;
-      grid-template-columns: 1.3fr 1.3fr 110px 110px 80px 160px;
-      gap: 8px;
-      padding: 10px 22px;
+      grid-template-columns: 1fr auto auto;
+      gap: 12px;
+      padding: 10px 22px 10px 36px;
       align-items: center;
       border-bottom: 1px solid var(--border-color);
       transition: background 0.12s ease;
@@ -980,37 +1006,14 @@
 
     .service-table-row .col-service {
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
       color: var(--text-primary);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .service-table-row .col-project {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      min-width: 0;
-    }
-    .col-project-name {
-      font-size: 13px;
-      color: var(--text-secondary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .service-table-row .col-region {
-      font-size: 12px;
-      color: var(--text-muted);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .service-table-row .col-cost {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--blue);
-      font-variant-numeric: tabular-nums;
+    .service-table-row .col-status {
+      flex-shrink: 0;
     }
     .service-table-row .col-actions {
       display: flex;
@@ -1082,46 +1085,23 @@
       border-bottom: 1px solid var(--border-color);
     }
 
-    /* Project name inline edit in table */
-    .col-project .edit-name-input {
-      width: 100%;
-      padding: 2px 6px;
+    /* Project name inline edit in sub-header */
+    .project-subheader .edit-name-input {
+      padding: 2px 8px;
       font-size: 13px;
+      max-width: 200px;
     }
 
     /* Responsive for table layout */
-    @media (max-width: 900px) {
-      .service-table-head { display: none; }
-      .service-table-row {
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto auto;
-        gap: 4px 12px;
-        padding: 12px 18px;
-      }
-      .service-table-row .col-service { grid-column: 1; }
-      .service-table-row .col-project { grid-column: 2; }
-      .service-table-row .col-region { grid-column: 1; font-size: 11px; }
-      .service-table-row .col-status { grid-column: 2; }
-      .service-table-row .col-cost { grid-column: 1; }
-      .service-table-row .col-actions { grid-column: 2; justify-content: flex-start; }
-    }
     @media (max-width: 640px) {
       .service-table-row {
         grid-template-columns: 1fr;
         gap: 6px;
-      }
-      .service-table-row .col-service,
-      .service-table-row .col-project,
-      .service-table-row .col-region,
-      .service-table-row .col-status,
-      .service-table-row .col-cost,
-      .service-table-row .col-actions {
-        grid-column: 1;
+        padding: 10px 16px 10px 24px;
       }
       .service-table-row .col-actions { justify-content: flex-start; }
       .account-header { padding: 12px 16px; }
-      .service-table-head { display: none; }
-      .service-table-row { padding: 10px 16px; }
+      .project-subheader { padding: 8px 16px; flex-wrap: wrap; }
       .domain-sub-row { padding: 6px 16px 10px; }
     }
   </style>
@@ -1283,42 +1263,32 @@
 
         <!-- Service Table -->
         <div v-if="account.projects && isAccountExpanded(account.name)" class="service-table">
-          <!-- Table Header -->
-          <div class="service-table-head">
-            <span>{{ t.colService }}</span>
-            <span>{{ t.project }}</span>
-            <span>{{ t.colRegion }}</span>
-            <span>{{ t.colStatus }}</span>
-            <span>{{ t.colCost }}</span>
-            <span></span>
-          </div>
-
           <!-- Rows: iterate projects → services -->
           <template v-for="project in account.projects" :key="project._id">
-            <div v-for="service in project.services" :key="service._id" class="service-table-row">
-              <!-- Service Name -->
-              <div class="col-service" :title="service.name">{{ service.name }}</div>
-              <!-- Project Name -->
-              <div class="col-project">
-                <span v-if="!project.isEditing" class="col-project-name" :title="project.name">{{ project.name }}</span>
+            <!-- Project sub-header -->
+            <div class="project-subheader">
+              <div class="project-subheader-left">
+                <span v-if="!project.isEditing" class="project-subheader-name" :title="project.name">{{ project.name }}</span>
                 <input v-else v-model="project.editingName" class="edit-name-input"
                   @keyup.enter="saveProjectName(account, project)"
                   @keyup.esc="cancelEditProjectName(project)"
                   @blur="saveProjectName(account, project)">
                 <button v-if="!project.isEditing" class="edit-name-btn"
                   @click.stop="startEditProjectName(project)" title="Rename">&#9998;</button>
+                <span class="project-subheader-meta">{{ project.region }}</span>
+                <span class="project-subheader-meta">{{ project.services.length }}{{ t.nServices }}</span>
               </div>
-              <!-- Region -->
-              <div class="col-region" :title="project.region">{{ project.region }}</div>
-              <!-- Status -->
+              <div class="project-subheader-cost">${{ formatCost(project.cost) }}</div>
+            </div>
+
+            <!-- Service rows -->
+            <div v-for="service in project.services" :key="service._id" class="service-table-row">
+              <div class="col-service" :title="service.name">{{ service.name }}</div>
               <div class="col-status">
                 <span class="badge" :class="getBadgeClass(service.status)">
                   {{ getStatusLabel(service.status) }}
                 </span>
               </div>
-              <!-- Cost -->
-              <div class="col-cost">${{ formatCost(project.cost) }}</div>
-              <!-- Actions -->
               <div class="col-actions">
                 <button v-if="service.status === 'RUNNING'" class="btn btn-sm"
                   @click="pauseService(account, project, service)">{{ t.pause }}</button>
