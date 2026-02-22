@@ -720,15 +720,6 @@ app.delete('/api/server-accounts/:index', requireAuth, async (req, res) => {
   }
 });
 
-// 服务器配置的账号API（兼容旧版本）
-app.get('/api/accounts', async (req, res) => {
-  res.json([]);
-});
-
-app.get('/api/projects', async (req, res) => {
-  res.json([]);
-});
-
 // 暂停服务
 app.post('/api/service/pause', requireAuth, async (req, res) => {
   const { token, serviceId, environmentId } = req.body;
@@ -738,8 +729,8 @@ app.post('/api/service/pause', requireAuth, async (req, res) => {
   }
   
   try {
-    const mutation = `mutation { suspendService(serviceID: "${serviceId}", environmentID: "${environmentId}") }`;
-    const result = await queryZeabur(token, mutation);
+    const mutation = `mutation($serviceID: ObjectID!, $environmentID: ObjectID!) { suspendService(serviceID: $serviceID, environmentID: $environmentID) }`;
+    const result = await queryZeabur(token, mutation, { serviceID: serviceId, environmentID: environmentId });
     
     if (result.data?.suspendService) {
       res.json({ success: true, message: '服务已暂停' });
@@ -760,8 +751,8 @@ app.post('/api/service/restart', requireAuth, async (req, res) => {
   }
   
   try {
-    const mutation = `mutation { restartService(serviceID: "${serviceId}", environmentID: "${environmentId}") }`;
-    const result = await queryZeabur(token, mutation);
+    const mutation = `mutation($serviceID: ObjectID!, $environmentID: ObjectID!) { restartService(serviceID: $serviceID, environmentID: $environmentID) }`;
+    const result = await queryZeabur(token, mutation, { serviceID: serviceId, environmentID: environmentId });
     
     if (result.data?.restartService) {
       res.json({ success: true, message: '服务已重启' });
@@ -783,19 +774,19 @@ app.post('/api/service/logs', requireAuth, express.json(), async (req, res) => {
   
   try {
     const query = `
-      query {
+      query($projectID: ObjectID!, $serviceID: ObjectID!, $environmentID: ObjectID!) {
         runtimeLogs(
-          projectID: "${projectId}"
-          serviceID: "${serviceId}"
-          environmentID: "${environmentId}"
+          projectID: $projectID
+          serviceID: $serviceID
+          environmentID: $environmentID
         ) {
           message
           timestamp
         }
       }
     `;
-    
-    const result = await queryZeabur(token, query);
+
+    const result = await queryZeabur(token, query, { projectID: projectId, serviceID: serviceId, environmentID: environmentId });
     
     if (result.data?.runtimeLogs) {
       // 按时间戳排序，最新的在最后
@@ -841,10 +832,10 @@ app.post('/api/project/rename', requireAuth, async (req, res) => {
       return res.status(404).json({ error: '未找到账号或token' });
     }
     
-    const mutation = `mutation { renameProject(_id: "${projectId}", name: "${newName}") }`;
-    console.log(`🔍 发送 GraphQL mutation:`, mutation);
-    
-    const result = await queryZeabur(account.token, mutation);
+    const mutation = `mutation($id: ObjectID!, $name: String!) { renameProject(_id: $id, name: $name) }`;
+    console.log(`🔍 发送 GraphQL mutation (projectId=${projectId}, newName=${newName})`);
+
+    const result = await queryZeabur(account.token, mutation, { id: projectId, name: newName });
     console.log(`📥 API 响应:`, JSON.stringify(result, null, 2));
     
     if (result.data?.renameProject) {
@@ -1000,7 +991,7 @@ async function runBarkMonitor() {
     const allAccounts = [...envAccounts, ...serverAccounts];
     if (allAccounts.length === 0) { barkMonitorRunning = false; return; }
 
-    for (const account of allAccounts) {
+    const results = await Promise.allSettled(allAccounts.map(async (account) => {
       try {
         const { user, projects } = await fetchAccountData(account.token);
 
@@ -1042,7 +1033,7 @@ async function runBarkMonitor() {
       } catch (e) {
         console.log(`⚠️ Bark 监控 [${account.name}] 失败:`, e.message);
       }
-    }
+    }));
 
     // 清理已删除账号/服务的残留 key，防止内存泄漏
     for (const key of previousServiceStates.keys()) {
@@ -1075,8 +1066,8 @@ app.post('/api/service/domain/remove', requireAuth, async (req, res) => {
     return res.status(400).json({ error: '缺少必要参数' });
   }
   try {
-    const mutation = `mutation { removeDomain(_id: "${domainId}") }`;
-    const result = await queryZeabur(token, mutation);
+    const mutation = `mutation($id: ObjectID!) { removeDomain(_id: $id) }`;
+    const result = await queryZeabur(token, mutation, { id: domainId });
     if (result.data) {
       res.json({ success: true });
     } else {

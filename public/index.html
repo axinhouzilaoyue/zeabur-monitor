@@ -1495,7 +1495,7 @@
                 <div v-if="deploymentsList.length === 0" style="text-align: center; color: var(--text-muted); padding: 16px;">{{ t.noDeployments }}</div>
                 <div v-for="dep in deploymentsList" :key="dep._id" class="deploy-item" @click="fetchBuildLog(dep._id)">
                   <div>
-                    <span style="font-weight:500;">{{ new Date(dep.createdAt).toLocaleString('zh-CN') }}</span>
+                    <span style="font-weight:500;">{{ new Date(dep.createdAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') }}</span>
                   </div>
                   <span class="deploy-status" :class="dep.status">{{ dep.status }}</span>
                 </div>
@@ -1914,7 +1914,7 @@
         const sessionToken = localStorage.getItem('session_token');
         if (sessionToken) {
           try {
-            const response = await fetch('/api/accounts', {
+            const response = await fetch('/api/check-password', {
               headers: { 'x-session-token': sessionToken }
             });
             if (response.ok) {
@@ -1922,6 +1922,7 @@
               await this.loadManagedAccounts();
               this.loadProjectCosts();
               this.fetchData();
+              if (this.refreshInterval) clearInterval(this.refreshInterval);
               this.refreshInterval = setInterval(() => this.fetchData(), 90000);
               return;
             } else {
@@ -2096,6 +2097,7 @@
               await this.loadManagedAccounts();
               this.loadProjectCosts();
               this.fetchData();
+              if (this.refreshInterval) clearInterval(this.refreshInterval);
               this.refreshInterval = setInterval(() => this.fetchData(), 90000);
             } else {
               this.loginError = this.t.msgIncorrectPassword;
@@ -2168,20 +2170,13 @@
                 projects: item.projects || []
               }));
             } else {
-              const [accountsRes, projectsRes] = await Promise.all([
-                fetch('/api/accounts').then(r => r.json()),
-                fetch('/api/projects').then(r => r.json())
-              ]);
-              this.accounts = accountsRes.map((account, index) => {
-                const projectData = projectsRes[index];
-                return { ...account, projects: projectData.projects || [] };
-              });
+              this.accounts = [];
             }
+            this.lastUpdate = new Date().toLocaleTimeString(this.lang === 'zh' ? 'zh-CN' : 'en-US');
           } catch (error) {
             console.error('Failed to fetch data:', error);
           } finally {
             this.loading = false;
-            this.lastUpdate = new Date().toLocaleTimeString('zh-CN');
           }
         },
         getBalanceClass(credit) {
@@ -2362,7 +2357,7 @@
         },
         async showServiceLogs(account, project, service) {
           this.logsModalTitle = service.name;
-          this.logsModalInfo = { project: project.name, account: account.name, count: 0, time: new Date().toLocaleString('zh-CN') };
+          this.logsModalInfo = { project: project.name, account: account.name, count: 0, time: new Date().toLocaleString(this.lang === 'zh' ? 'zh-CN' : 'en-US') };
           this.logsContent = '';
           this.logsLoading = true;
           this.showLogsModal = true;
@@ -2378,7 +2373,7 @@
             });
             const result = await response.json();
             if (result.success && result.logs) {
-              this.logsContent = result.logs.map(log => '[' + new Date(log.timestamp).toLocaleString('zh-CN') + '] ' + log.message).join('\n');
+              this.logsContent = result.logs.map(log => '[' + new Date(log.timestamp).toLocaleString(this.lang === 'zh' ? 'zh-CN' : 'en-US') + '] ' + log.message).join('\n');
               this.logsModalInfo.count = result.count;
             } else {
               this.logsContent = this.t.msgFailed + ': ' + (result.error || '');
@@ -2607,7 +2602,7 @@
             });
             const result = await response.json();
             if (result.success && result.logs) {
-              this.buildLogsContent = result.logs.map(l => '[' + new Date(l.timestamp).toLocaleString('zh-CN') + '] ' + l.message).join('\n') || this.t.noLogs;
+              this.buildLogsContent = result.logs.map(l => '[' + new Date(l.timestamp).toLocaleString(this.lang === 'zh' ? 'zh-CN' : 'en-US') + '] ' + l.message).join('\n') || this.t.noLogs;
             } else {
               this.buildLogsContent = this.t.msgFailed + ': ' + (result.error || '');
             }
@@ -2630,33 +2625,36 @@
           }
           try {
             const allUsage = [];
-            for (const acc of accountsWithData) {
+            const usagePromises = accountsWithData.map(async (acc) => {
               const token = allAccounts.find(a => a.name === acc.name)?.token;
-              if (!token) continue;
-              const response = await fetch('/api/usage/detail', {
-                method: 'POST', headers: this.getAuthHeaders(),
-                body: JSON.stringify({ token, userId: acc.data._id })
-              });
-              const result = await response.json();
-              if (result.success) {
-                this.usagePeriod = result.period;
-                const cpuMap = {};
-                const memMap = {};
-                const netMap = {};
-                (result.usageByType?.CPU || []).forEach(s => { cpuMap[s.name] = s.total; });
-                (result.usageByType?.MEMORY || []).forEach(s => { memMap[s.name] = s.total; });
-                (result.usageByType?.NETWORK || []).forEach(s => { netMap[s.name] = s.total; });
-                (result.serviceUsage || []).forEach(s => {
-                  allUsage.push({
-                    name: `${acc.name} / ${s.name}`,
-                    total: s.total,
-                    cpu: cpuMap[s.name] || 0,
-                    memory: memMap[s.name] || 0,
-                    network: netMap[s.name] || 0
-                  });
+              if (!token) return;
+              try {
+                const response = await fetch('/api/usage/detail', {
+                  method: 'POST', headers: this.getAuthHeaders(),
+                  body: JSON.stringify({ token, userId: acc.data._id })
                 });
-              }
-            }
+                const result = await response.json();
+                if (result.success) {
+                  this.usagePeriod = result.period;
+                  const cpuMap = {};
+                  const memMap = {};
+                  const netMap = {};
+                  (result.usageByType?.CPU || []).forEach(s => { cpuMap[s.name] = s.total; });
+                  (result.usageByType?.MEMORY || []).forEach(s => { memMap[s.name] = s.total; });
+                  (result.usageByType?.NETWORK || []).forEach(s => { netMap[s.name] = s.total; });
+                  (result.serviceUsage || []).forEach(s => {
+                    allUsage.push({
+                      name: `${acc.name} / ${s.name}`,
+                      total: s.total,
+                      cpu: cpuMap[s.name] || 0,
+                      memory: memMap[s.name] || 0,
+                      network: netMap[s.name] || 0
+                    });
+                  });
+                }
+              } catch (e) { /* ignore individual account errors */ }
+            });
+            await Promise.all(usagePromises);
             this.usageData = allUsage.sort((a, b) => b.total - a.total);
           } catch (error) { console.error('Usage error:', error); }
           finally { this.usageLoading = false; }
