@@ -947,92 +947,158 @@
       flex-shrink: 0;
     }
 
-    /* Service Table */
-    .service-table { border-top: 1px solid var(--border-color); }
+    /* Monitor List (Uptime Kuma style) */
+    .monitor-list {
+      padding: 12px 16px 16px;
+    }
 
-    /* Project sub-header */
-    .project-subheader {
+    /* Project Group */
+    .project-group {
+      margin-bottom: 20px;
+    }
+    .project-group:last-child { margin-bottom: 0; }
+    .project-group-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 22px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-      gap: 12px;
+      padding: 6px 4px 10px;
     }
-    .project-subheader-left {
+    .project-group-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .project-group-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .project-group-info {
       display: flex;
       align-items: center;
       gap: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .project-group-cost {
+      font-weight: 700;
+      color: var(--blue);
+      font-variant-numeric: tabular-nums;
+    }
+    .project-group-header .edit-name-input {
+      padding: 2px 8px;
+      font-size: 12px;
+      max-width: 180px;
+    }
+
+    /* Monitor Item */
+    .monitor-item {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      margin-bottom: 6px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      border-left: 3.5px solid var(--text-muted);
+      transition: all 0.15s ease;
+    }
+    .monitor-item:last-child { margin-bottom: 0; }
+    .monitor-item:hover {
+      border-color: var(--border-hover);
+      border-left-color: var(--text-muted);
+      background: var(--bg-card-hover);
+    }
+    .monitor-item.status-running {
+      border-left-color: var(--green);
+    }
+    .monitor-item.status-running:hover {
+      border-left-color: var(--green);
+    }
+    .monitor-item.status-suspended {
+      border-left-color: var(--red);
+    }
+    .monitor-item.status-suspended:hover {
+      border-left-color: var(--red);
+    }
+    .monitor-item.status-deploying {
+      border-left-color: var(--yellow);
+    }
+    .monitor-item.status-deploying:hover {
+      border-left-color: var(--yellow);
+    }
+
+    /* Status dot */
+    .monitor-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-right: 14px;
+      background: var(--text-muted);
+    }
+    .status-running .monitor-dot {
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
+    }
+    .status-suspended .monitor-dot {
+      background: var(--red);
+      box-shadow: 0 0 6px rgba(248, 113, 113, 0.3);
+    }
+    .status-deploying .monitor-dot {
+      background: var(--yellow);
+      animation: pulseDot 1.5s ease-in-out infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(251, 191, 36, 0.5); }
+      50% { opacity: 0.4; box-shadow: 0 0 2px rgba(251, 191, 36, 0.15); }
+    }
+
+    .monitor-info {
+      flex: 1;
       min-width: 0;
     }
-    .project-subheader-name {
-      font-size: 13px;
+    .monitor-name {
+      font-size: 14px;
       font-weight: 600;
       color: var(--text-primary);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      line-height: 1.3;
     }
-    .project-subheader-meta {
-      font-size: 11px;
+    .monitor-meta {
+      font-size: 12px;
       color: var(--text-muted);
-      padding: 2px 8px;
-      background: var(--bg-elevated);
-      border-radius: 20px;
-      border: 1px solid var(--border-color);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .project-subheader-cost {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--blue);
-      font-variant-numeric: tabular-nums;
-      flex-shrink: 0;
+      margin-top: 2px;
     }
 
-    .service-table-row {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 12px;
-      padding: 10px 22px 10px 36px;
-      align-items: center;
-      border-bottom: 1px solid var(--border-color);
-      transition: background 0.12s ease;
-    }
-    .service-table-row:last-child { border-bottom: none; }
-    .service-table-row:hover { background: var(--bg-card-hover); }
-
-    .service-table-row .col-service {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .service-table-row .col-status {
-      flex-shrink: 0;
-    }
-    .service-table-row .col-actions {
+    .monitor-actions {
       display: flex;
       gap: 4px;
       align-items: center;
-      justify-content: flex-end;
+      flex-shrink: 0;
+      margin-left: 12px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .monitor-item:hover .monitor-actions {
+      opacity: 1;
     }
 
-    /* Domain sub-row */
-    .domain-sub-row {
-      padding: 6px 22px 10px;
-      border-bottom: 1px solid var(--border-color);
+    /* Project domains */
+    .project-domains {
+      padding: 6px 4px 0;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 8px 16px;
     }
-    .domain-sub-row .domain-link { font-size: 12px; }
-    .domain-sub-row .domain-add-row { margin-top: 0; }
+    .project-domains .domain-link { font-size: 12px; }
+    .project-domains .domain-add-row { margin-top: 0; }
 
     /* Dropdown menu */
     .action-dropdown {
@@ -1076,33 +1142,25 @@
       z-index: 99;
     }
 
-    /* Empty project row */
+    /* Empty state */
     .empty-service-row {
-      padding: 16px 22px;
+      padding: 20px;
       text-align: center;
       color: var(--text-muted);
       font-size: 13px;
-      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border: 1px dashed var(--border-color);
     }
 
-    /* Project name inline edit in sub-header */
-    .project-subheader .edit-name-input {
-      padding: 2px 8px;
-      font-size: 13px;
-      max-width: 200px;
-    }
-
-    /* Responsive for table layout */
+    /* Responsive */
     @media (max-width: 640px) {
-      .service-table-row {
-        grid-template-columns: 1fr;
-        gap: 6px;
-        padding: 10px 16px 10px 24px;
-      }
-      .service-table-row .col-actions { justify-content: flex-start; }
+      .monitor-list { padding: 8px 12px 12px; }
+      .monitor-item { padding: 10px 12px; }
+      .monitor-actions { opacity: 1; }
       .account-header { padding: 12px 16px; }
-      .project-subheader { padding: 8px 16px; flex-wrap: wrap; }
-      .domain-sub-row { padding: 6px 16px 10px; }
+      .project-group-header { flex-wrap: wrap; gap: 6px; }
+      .project-domains { padding: 6px 0 0; }
     }
   </style>
 </head>
@@ -1261,35 +1319,41 @@
           <div class="alert alert-error" style="margin-bottom: 0;">{{ account.error }}</div>
         </div>
 
-        <!-- Service Table -->
-        <div v-if="account.projects && isAccountExpanded(account.name)" class="service-table">
-          <!-- Rows: iterate projects → services -->
-          <template v-for="project in account.projects" :key="project._id">
-            <!-- Project sub-header -->
-            <div class="project-subheader">
-              <div class="project-subheader-left">
-                <span v-if="!project.isEditing" class="project-subheader-name" :title="project.name">{{ project.name }}</span>
+        <!-- Monitor List (Uptime Kuma style) -->
+        <div v-if="account.projects && isAccountExpanded(account.name)" class="monitor-list">
+          <div v-for="project in account.projects" :key="project._id" class="project-group">
+            <!-- Project group header -->
+            <div class="project-group-header">
+              <div class="project-group-left">
+                <span v-if="!project.isEditing" class="project-group-title" :title="project.name">{{ project.name }}</span>
                 <input v-else v-model="project.editingName" class="edit-name-input"
                   @keyup.enter="saveProjectName(account, project)"
                   @keyup.esc="cancelEditProjectName(project)"
                   @blur="saveProjectName(account, project)">
                 <button v-if="!project.isEditing" class="edit-name-btn"
                   @click.stop="startEditProjectName(project)" title="Rename">&#9998;</button>
-                <span class="project-subheader-meta">{{ project.region }}</span>
-                <span class="project-subheader-meta">{{ project.services.length }}{{ t.nServices }}</span>
               </div>
-              <div class="project-subheader-cost">${{ formatCost(project.cost) }}</div>
+              <div class="project-group-info">
+                <span>{{ project.region }}</span>
+                <span>{{ project.services.length }}{{ t.nServices }}</span>
+                <span class="project-group-cost">${{ formatCost(project.cost) }}</span>
+              </div>
             </div>
 
-            <!-- Service rows -->
-            <div v-for="service in project.services" :key="service._id" class="service-table-row">
-              <div class="col-service" :title="service.name">{{ service.name }}</div>
-              <div class="col-status">
-                <span class="badge" :class="getBadgeClass(service.status)">
-                  {{ getStatusLabel(service.status) }}
-                </span>
+            <!-- Monitor items -->
+            <div v-for="service in project.services" :key="service._id"
+              class="monitor-item"
+              :class="{
+                'status-running': service.status === 'RUNNING',
+                'status-suspended': service.status === 'SUSPENDED',
+                'status-deploying': service.status === 'DEPLOYING'
+              }">
+              <div class="monitor-dot"></div>
+              <div class="monitor-info">
+                <div class="monitor-name" :title="service.name">{{ service.name }}</div>
+                <div class="monitor-meta">{{ getStatusLabel(service.status) }}</div>
               </div>
-              <div class="col-actions">
+              <div class="monitor-actions">
                 <button v-if="service.status === 'RUNNING'" class="btn btn-sm"
                   @click="pauseService(account, project, service)">{{ t.pause }}</button>
                 <button class="btn btn-sm"
@@ -1312,8 +1376,8 @@
               {{ t.noServices }}
             </div>
 
-            <!-- Domains sub-row -->
-            <div v-if="getProjectDomains(project).length > 0 || isAccountExpanded(account.name)" class="domain-sub-row">
+            <!-- Domains -->
+            <div v-if="getProjectDomains(project).length > 0 || isAccountExpanded(account.name)" class="project-domains">
               <template v-for="domainInfo in getProjectDomains(project)" :key="domainInfo.domain">
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <a :href="'https://' + domainInfo.domain" target="_blank" class="domain-link">
@@ -1330,7 +1394,7 @@
                 <button class="btn btn-sm" @click="addDomain(account, project, $event)">{{ t.add }}</button>
               </div>
             </div>
-          </template>
+          </div>
         </div>
       </div>
 
