@@ -283,10 +283,8 @@
       font-weight: 800;
       font-variant-numeric: tabular-nums;
       letter-spacing: -0.3px;
+      color: var(--green);
     }
-    .balance-ok { color: var(--green); }
-    .balance-low { color: var(--yellow); }
-    .balance-critical { color: var(--red); }
     .aihub-badge {
       font-size: 11px;
       font-weight: 600;
@@ -1164,7 +1162,7 @@
             <div v-if="account.aihub && account.aihub.balance" class="aihub-badge">
               AI Hub: ${{ (account.aihub.balance / 100000).toFixed(2) }}
             </div>
-            <div v-if="account.data" class="account-balance" :class="getBalanceClass(account.data.credit)">
+            <div v-if="account.data" class="account-balance">
               ${{ (account.data.credit / 100).toFixed(2) }}
             </div>
           </div>
@@ -2028,12 +2026,6 @@
           } finally {
             this.loading = false;
           }
-        },
-        getBalanceClass(credit) {
-          const balance = credit / 100;
-          if (balance < 10) return 'balance-critical';
-          if (balance < 50) return 'balance-low';
-          return 'balance-ok';
         },
         async batchAddAccounts() {
           this.batchAddError = '';
