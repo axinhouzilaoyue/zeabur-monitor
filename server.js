@@ -1069,26 +1069,6 @@ function startBarkMonitor() {
 
 // ============ 域名管理 API ============
 
-app.post('/api/service/domain/add', requireAuth, async (req, res) => {
-  const { token, serviceId, environmentId, domain } = req.body;
-  if (!token || !serviceId || !environmentId || !domain) {
-    return res.status(400).json({ error: '缺少必要参数' });
-  }
-  try {
-    const query = `mutation($serviceID: ObjectID!, $environmentID: ObjectID!, $domain: String!) {
-      addDomain(serviceID: $serviceID, environmentID: $environmentID, domain: $domain) { _id domain isGenerated }
-    }`;
-    const result = await queryZeabur(token, query, { serviceID: serviceId, environmentID: environmentId, domain });
-    if (result.data?.addDomain) {
-      res.json({ success: true, domain: result.data.addDomain });
-    } else {
-      res.status(400).json({ error: '添加域名失败', details: result.errors?.[0]?.message || JSON.stringify(result) });
-    }
-  } catch (error) {
-    res.status(500).json({ error: '添加域名失败: ' + error.message });
-  }
-});
-
 app.post('/api/service/domain/remove', requireAuth, async (req, res) => {
   const { token, domainId } = req.body;
   if (!token || !domainId) {

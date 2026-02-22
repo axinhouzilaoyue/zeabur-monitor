@@ -892,10 +892,6 @@
     /* Domain inline management */
     .domain-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; transition: color 0.15s; }
     .domain-remove:hover { color: var(--red); }
-    .domain-add-row { display: flex; gap: 6px; margin-top: 8px; }
-    .domain-add-input { flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 12px; outline: none; background: var(--bg-card); color: var(--text-primary); transition: all 0.2s; font-family: inherit; }
-    .domain-add-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
-    .domain-add-input::placeholder { color: var(--text-muted); }
 
     /* Deployment list */
     .deploy-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s ease; background: var(--bg-card); color: var(--text-primary); }
@@ -1099,7 +1095,8 @@
       opacity: 0;
       transition: opacity 0.15s ease;
     }
-    .monitor-item:hover .monitor-actions {
+    .monitor-item:hover .monitor-actions,
+    .monitor-item.dropdown-active .monitor-actions {
       opacity: 1;
     }
 
@@ -1112,7 +1109,7 @@
       gap: 8px 16px;
     }
     .project-domains .domain-link { font-size: 12px; }
-    .project-domains .domain-add-row { margin-top: 0; }
+    .project-domains .domain-remove { margin-left: 2px; }
 
     /* Dropdown menu */
     .action-dropdown {
@@ -1273,8 +1270,7 @@
           <button class="btn" @click="showManageModal = true">{{ t.accounts }}</button>
           <button class="btn" @click="openUsageDetail">{{ t.usage }}</button>
           <button class="btn" @click="openSettings">{{ t.settings }}</button>
-          <button class="btn btn-danger" @click="clearCache">{{ t.clearCache }}</button>
-          <span class="update-time">{{ t.updated }} {{ lastUpdate }}</span>
+<span class="update-time">{{ t.updated }} {{ lastUpdate }}</span>
         </div>
       </div>
 
@@ -1360,7 +1356,8 @@
               :class="{
                 'status-running': service.status === 'RUNNING',
                 'status-suspended': service.status === 'SUSPENDED',
-                'status-deploying': service.status === 'DEPLOYING'
+                'status-deploying': service.status === 'DEPLOYING',
+                'dropdown-active': activeDropdown === service._id
               }">
               <div class="monitor-dot"></div>
               <img v-if="getServiceIcon(service)" :src="getServiceIcon(service)"
@@ -1404,11 +1401,6 @@
                     @click="removeDomain(account, domainInfo)">&times;</button>
                 </div>
               </template>
-              <div class="domain-add-row">
-                <input class="domain-add-input" :placeholder="t.addDomainPlaceholder"
-                  @keyup.enter="addDomain(account, project, $event)">
-                <button class="btn btn-sm" @click="addDomain(account, project, $event)">{{ t.add }}</button>
-              </div>
             </div>
           </div>
         </div>
@@ -1737,14 +1729,14 @@
 
     const i18n = {
       zh: {
-        title: 'Zeabur Monitor', refresh: '刷新', loading: '加载中...', accounts: '账号管理', usage: '用量', settings: '设置', clearCache: '清除缓存', updated: '更新于',
+        title: 'Zeabur Monitor', refresh: '刷新', loading: '加载中...', accounts: '账号管理', usage: '用量', settings: '设置', updated: '更新于',
         statAccounts: '账号', statProjects: '项目', statServices: '服务', statRunning: '运行中', statTotalCost: '总费用',
         loadingData: '加载数据中...',
         nServices: '个服务', nRunning: '个运行中', noServices: '暂无服务',
         colService: '服务', colRegion: '区域', colStatus: '状态', colCost: '费用',
         statusRunning: '运行中', statusStopped: '已停止', statusDeploying: '部署中',
         pause: '暂停', start: '启动', restart: '重启', logs: '日志', build: '构建', env: '环境变量',
-        auto: '自动', addDomainPlaceholder: '添加域名...', add: '添加', removeDomainTitle: '移除域名',
+        auto: '自动', removeDomainTitle: '移除域名',
         noAccounts: '暂无账号配置。点击"账号管理"添加您的 Zeabur API Token。',
         close: '关闭', project: '项目', account: '账号', entries: '条数', loadingLogs: '加载日志中...', noLogs: '暂无日志',
         envVars: '环境变量', key: '键', value: '值', show: '显示', hide: '隐藏', edit: '编辑', save: '保存', cancel: '取消', del: '删除', noEnvVars: '暂无环境变量',
@@ -1771,7 +1763,6 @@
         msgConfirmAction: '确定{action}服务 "{name}"？', msgProjectNameEmpty: '项目名称不能为空', msgCantFindAccount: '无法找到账号信息',
         msgKeyCopied: '密钥已复制到剪贴板。请按照设置步骤操作后刷新页面。', msgNameTokenRequired: '名称和 API Token 不能为空',
         msgEnterPasswordToRemove: '输入管理员密码以移除 "{name}"：',
-        msgClearCacheConfirm: '确定清除所有缓存数据？这将删除本地存储的托管账号和费用数据。环境变量账号将被保留。',
         msgNoServiceInProject: '项目中没有服务', msgRemoveDomainConfirm: '确定移除域名 "{name}"？', msgDeleteEnvVarConfirm: '确定删除环境变量 "{name}"？',
         msgKeyRequired: '键名不能为空', msgFailed: '失败', msgError: '错误', msgExists: '已存在', msgNetworkError: '网络错误',
         msgAccountsAdded: '已添加 {n} 个账号', msgAllFailed: '全部失败', msgPleaseEnterAccountInfo: '请输入账号信息',
@@ -1779,14 +1770,14 @@
         msgAccountAdded: '账号已添加：{name}', msgFailedToAdd: '添加失败', msgLine: '第{n}行'
       },
       en: {
-        title: 'Zeabur Monitor', refresh: 'Refresh', loading: 'Loading...', accounts: 'Accounts', usage: 'Usage', settings: 'Settings', clearCache: 'Clear Cache', updated: 'Updated',
+        title: 'Zeabur Monitor', refresh: 'Refresh', loading: 'Loading...', accounts: 'Accounts', usage: 'Usage', settings: 'Settings', updated: 'Updated',
         statAccounts: 'Accounts', statProjects: 'Projects', statServices: 'Services', statRunning: 'Running', statTotalCost: 'Total Cost',
         loadingData: 'Loading data...',
         nServices: ' services', nRunning: ' running', noServices: 'No services',
         colService: 'Service', colRegion: 'Region', colStatus: 'Status', colCost: 'Cost',
         statusRunning: 'Running', statusStopped: 'Stopped', statusDeploying: 'Deploying',
         pause: 'Pause', start: 'Start', restart: 'Restart', logs: 'Logs', build: 'Build', env: 'Env',
-        auto: 'auto', addDomainPlaceholder: 'Add domain...', add: 'Add', removeDomainTitle: 'Remove domain',
+        auto: 'auto', removeDomainTitle: 'Remove domain',
         noAccounts: 'No accounts configured. Click "Accounts" to add your Zeabur API tokens.',
         close: 'Close', project: 'Project', account: 'Account', entries: 'Entries', loadingLogs: 'Loading logs...', noLogs: 'No logs available',
         envVars: 'Environment Variables', key: 'Key', value: 'Value', show: 'Show', hide: 'Hide', edit: 'Edit', save: 'Save', cancel: 'Cancel', del: 'Del', noEnvVars: 'No environment variables',
@@ -1813,7 +1804,6 @@
         msgConfirmAction: '{action} service "{name}"?', msgProjectNameEmpty: 'Project name cannot be empty', msgCantFindAccount: 'Cannot find account info',
         msgKeyCopied: 'Key copied to clipboard. Follow the setup steps then refresh.', msgNameTokenRequired: 'Name and API Token are required',
         msgEnterPasswordToRemove: 'Enter admin password to remove "{name}":',
-        msgClearCacheConfirm: 'Clear all cached data? This will remove locally stored managed accounts and cost data. Environment accounts will be preserved.',
         msgNoServiceInProject: 'No service in project', msgRemoveDomainConfirm: 'Remove domain "{name}"?', msgDeleteEnvVarConfirm: 'Delete env var "{name}"?',
         msgKeyRequired: 'Key is required', msgFailed: 'Failed', msgError: 'Error', msgExists: 'exists', msgNetworkError: 'network error',
         msgAccountsAdded: 'Added {n} accounts', msgAllFailed: 'All failed', msgPleaseEnterAccountInfo: 'Please enter account info',
@@ -2331,16 +2321,6 @@
           this.addAccountError = '';
           this.addAccountSuccess = '';
         },
-        clearCache() {
-          if (confirm(this.t.msgClearCacheConfirm)) {
-            this.managedAccounts = [];
-            this.projectCosts = {};
-            localStorage.removeItem('zeabur_accounts');
-            localStorage.removeItem('zeabur_project_costs');
-            this.saveManagedAccounts();
-            this.fetchData();
-          }
-        },
         toggleAccount(accountName) {
           this.expandedAccounts[accountName] = !this.expandedAccounts[accountName];
         },
@@ -2508,36 +2488,6 @@
           const allAccounts = [...this.envAccounts, ...this.managedAccounts];
           const acc = allAccounts.find(a => a.name === accountName);
           return acc?.token;
-        },
-        async addDomain(account, project, event) {
-          let input;
-          if (event.target.tagName === 'INPUT') {
-            input = event.target;
-          } else {
-            input = event.target.previousElementSibling;
-          }
-          const domain = input?.value?.trim();
-          if (!domain) return;
-          const token = this.getAccountToken(account.name);
-          if (!token) { alert(this.t.msgCantGetToken); return; }
-          const environmentId = project.environments?.[0]?._id;
-          if (!environmentId) { alert(this.t.msgCantGetEnvId); return; }
-          // Find the first service in the project to bind domain to
-          const service = project.services?.[0];
-          if (!service) { alert(this.t.msgNoServiceInProject); return; }
-          try {
-            const response = await fetch('/api/service/domain/add', {
-              method: 'POST', headers: this.getAuthHeaders(),
-              body: JSON.stringify({ token, serviceId: service._id, environmentId, domain })
-            });
-            const result = await response.json();
-            if (result.success) {
-              input.value = '';
-              this.fetchData();
-            } else {
-              alert(this.t.msgFailed + ': ' + (result.error || result.details));
-            }
-          } catch (error) { alert(this.t.msgError + ': ' + error.message); }
         },
         async removeDomain(account, domainInfo) {
           if (!domainInfo._id) { alert(this.t.msgCantGetEnvId); return; }
