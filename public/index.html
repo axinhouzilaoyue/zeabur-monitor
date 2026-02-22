@@ -1061,6 +1061,20 @@
       flex: 1;
       min-width: 0;
     }
+    .monitor-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      margin-right: 12px;
+      border-radius: 4px;
+      object-fit: contain;
+    }
+    :root[data-theme="light"] .monitor-icon {
+      filter: none;
+    }
+    :root:not([data-theme="light"]) .monitor-icon {
+      filter: brightness(1.8) saturate(0.8);
+    }
     .monitor-name {
       font-size: 14px;
       font-weight: 600;
@@ -1349,6 +1363,8 @@
                 'status-deploying': service.status === 'DEPLOYING'
               }">
               <div class="monitor-dot"></div>
+              <img v-if="getServiceIcon(service)" :src="getServiceIcon(service)"
+                class="monitor-icon" :alt="service.template" @error="$event.target.style.display='none'">
               <div class="monitor-info">
                 <div class="monitor-name" :title="service.name">{{ service.name }}</div>
                 <div class="monitor-meta">{{ getStatusLabel(service.status) }}</div>
@@ -1990,6 +2006,34 @@
         getStatusLabel(status) {
           const map = { 'RUNNING': this.t.statusRunning, 'SUSPENDED': this.t.statusStopped, 'DEPLOYING': this.t.statusDeploying };
           return map[status] || status;
+        },
+        getServiceIcon(service) {
+          const t = (service.template || '').toLowerCase();
+          if (!t) return null;
+          const map = {
+            'node.js': 'nodedotjs', 'nodejs': 'nodedotjs', 'next.js': 'nextdotjs', 'nextjs': 'nextdotjs',
+            'nuxt.js': 'nuxtdotjs', 'nuxtjs': 'nuxtdotjs', 'astro': 'astro', 'vite': 'vite',
+            'react': 'react', 'vue': 'vuedotjs', 'angular': 'angular', 'svelte': 'svelte',
+            'python': 'python', 'flask': 'flask', 'django': 'django', 'fastapi': 'fastapi',
+            'go': 'go', 'golang': 'go', 'gin': 'gin',
+            'java': 'openjdk', 'spring-boot': 'springboot', 'spring': 'spring',
+            'rust': 'rust', 'ruby': 'ruby', 'rails': 'rubyonrails',
+            'php': 'php', 'laravel': 'laravel',
+            'dotnet': 'dotnet', '.net': 'dotnet', 'csharp': 'csharp',
+            'bun': 'bun', 'deno': 'deno', 'elixir': 'elixir', 'swift': 'swift', 'kotlin': 'kotlin',
+            'mysql': 'mysql', 'postgresql': 'postgresql', 'postgres': 'postgresql',
+            'redis': 'redis', 'mongodb': 'mongodb', 'mariadb': 'mariadb',
+            'sqlite': 'sqlite', 'clickhouse': 'clickhouse',
+            'wordpress': 'wordpress', 'ghost': 'ghost', 'strapi': 'strapi',
+            'nginx': 'nginx', 'caddy': 'caddy', 'grafana': 'grafana',
+            'minio': 'minio', 'rabbitmq': 'rabbitmq', 'kafka': 'apachekafka',
+            'docker': 'docker', 'prometheus': 'prometheus',
+            'hono': 'hono', 'express': 'express', 'nestjs': 'nestjs',
+            'gatsby': 'gatsby', 'hugo': 'hugo', 'hexo': 'hexo', 'jekyll': 'jekyll',
+            'umami': 'umami', 'uptime-kuma': 'uptimekuma',
+          };
+          const slug = map[t] || t;
+          return 'https://cdn.simpleicons.org/' + slug;
         },
         toggleTheme() {
           this.theme = this.theme === 'dark' ? 'light' : 'dark';
