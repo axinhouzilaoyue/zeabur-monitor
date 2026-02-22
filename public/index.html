@@ -1140,6 +1140,10 @@
           <div class="stat-label">{{ t.statTotalCost }}</div>
           <div class="stat-value cost">${{ totalCost.toFixed(2) }}</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label">{{ t.statTotalBalance }}</div>
+          <div class="stat-value" style="color:var(--green);">${{ totalBalance.toFixed(2) }}</div>
+        </div>
       </div>
 
       <!-- Loading -->
@@ -1578,7 +1582,7 @@
     const i18n = {
       zh: {
         title: 'Zeabur Monitor', refresh: '刷新', loading: '加载中...', accounts: '账号管理', usage: '用量', settings: '设置', updated: '更新于',
-        statAccounts: '账号', statProjects: '项目', statServices: '服务', statRunning: '运行中', statTotalCost: '总费用',
+        statAccounts: '账号', statProjects: '项目', statServices: '服务', statRunning: '运行中', statTotalCost: '总费用', statTotalBalance: '总余额',
         loadingData: '加载数据中...',
         nServices: '个服务', nRunning: '个运行中', noServices: '暂无服务',
         statusRunning: '运行中', statusStopped: '已停止', statusDeploying: '部署中',
@@ -1619,7 +1623,7 @@
       },
       en: {
         title: 'Zeabur Monitor', refresh: 'Refresh', loading: 'Loading...', accounts: 'Accounts', usage: 'Usage', settings: 'Settings', updated: 'Updated',
-        statAccounts: 'Accounts', statProjects: 'Projects', statServices: 'Services', statRunning: 'Running', statTotalCost: 'Total Cost',
+        statAccounts: 'Accounts', statProjects: 'Projects', statServices: 'Services', statRunning: 'Running', statTotalCost: 'Total Cost', statTotalBalance: 'Balance',
         loadingData: 'Loading data...',
         nServices: ' services', nRunning: ' running', noServices: 'No services',
         statusRunning: 'Running', statusStopped: 'Stopped', statusDeploying: 'Deploying',
@@ -1829,6 +1833,13 @@
                 total += p.cost || 0;
               }
             }
+          }
+          return total;
+        },
+        totalBalance() {
+          let total = 0;
+          for (const acc of this.accounts) {
+            if (acc.data) total += (acc.data.credit || 0) / 100;
           }
           return total;
         },
