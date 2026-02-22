@@ -1436,6 +1436,11 @@
                 <label class="form-label">{{ t.checkInterval }}</label>
                 <input v-model.number="barkSettings.interval" type="number" class="form-input" min="1" max="60" style="width:120px;">
               </div>
+              <div class="form-group">
+                <label class="form-label">{{ t.barkIcon }}</label>
+                <input v-model="barkSettings.icon" class="form-input" placeholder="https://zeabur.com/favicon.ico">
+                <div class="form-hint">{{ t.barkIconHint }}</div>
+              </div>
               <div class="divider"></div>
               <div class="settings-title">{{ t.notificationRules }}</div>
               <div class="settings-row">
@@ -1588,6 +1593,7 @@
         usageDetails: '用量明细', loadingUsage: '加载用量数据...', noUsage: '暂无用量数据', service: '服务', total: '总计', cpu: 'CPU', memory: '内存', network: '网络',
         settingsTitle: '设置', barkNotifications: 'Bark 推送通知', enable: '启用', barkServerUrl: 'Bark 服务器地址', defaultServer: '默认公共服务器：https://api.day.app',
         deviceKey: '设备密钥', deviceKeyPlaceholder: '您的 Bark 设备密钥', deviceKeyHint: '在 Bark iOS 应用中获取', checkInterval: '检查间隔（分钟）',
+        barkIcon: '通知图标', barkIconHint: '留空则使用默认 Zeabur 图标',
         notificationRules: '通知规则', serviceDown: '服务宕机', serviceRecovery: '服务恢复', lowBalance: '余额不足',
         balanceThreshold: '余额阈值（美分）', balanceThresholdHint: '余额低于 ${amount} 时告警',
         sending: '发送中...', test: '测试', settingsSaved: '设置已保存', fillUrlAndKey: '请先填写 URL 和设备密钥',
@@ -1628,6 +1634,7 @@
         usageDetails: 'Usage Details', loadingUsage: 'Loading usage data...', noUsage: 'No usage data', service: 'Service', total: 'Total', cpu: 'CPU', memory: 'Memory', network: 'Network',
         settingsTitle: 'Settings', barkNotifications: 'Bark Push Notifications', enable: 'Enable', barkServerUrl: 'Bark Server URL', defaultServer: 'Default public server: https://api.day.app',
         deviceKey: 'Device Key', deviceKeyPlaceholder: 'Your Bark device key', deviceKeyHint: 'Get it from Bark iOS app', checkInterval: 'Check Interval (minutes)',
+        barkIcon: 'Notification Icon', barkIconHint: 'Leave empty to use default Zeabur icon',
         notificationRules: 'Notification Rules', serviceDown: 'Service Down', serviceRecovery: 'Service Recovery', lowBalance: 'Low Balance',
         balanceThreshold: 'Balance Threshold (cents)', balanceThresholdHint: 'Alert when balance drops below ${amount}',
         sending: 'Sending...', test: 'Test', settingsSaved: 'Settings saved', fillUrlAndKey: 'Please fill in URL and Device Key first',
@@ -1719,7 +1726,7 @@
           usagePeriod: '',
           // Settings
           showSettingsModal: false,
-          barkSettings: { url: '', deviceKey: '', enabled: false, interval: 5, notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 },
+          barkSettings: { url: '', deviceKey: '', enabled: false, interval: 5, icon: '', notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 },
           settingsError: '',
           settingsSuccess: '',
           barkTesting: false,

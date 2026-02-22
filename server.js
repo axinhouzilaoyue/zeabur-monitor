@@ -765,7 +765,7 @@ function loadBarkSettings() {
   } catch (e) {
     console.error('❌ 读取 Bark 配置失败:', e.message);
   }
-  _cachedBarkSettings = { url: '', deviceKey: '', enabled: false, interval: 5, notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 };
+  _cachedBarkSettings = { url: '', deviceKey: '', enabled: false, interval: 5, icon: '', notifyServiceDown: true, notifyServiceRecovery: true, notifyBalanceLow: true, balanceThreshold: 100 };
   return _cachedBarkSettings;
 }
 
@@ -791,7 +791,7 @@ async function sendBarkNotification(title, body, group = 'zeabur-monitor') {
     const payload = JSON.stringify({
       device_key: settings.deviceKey,
       title, body, group,
-      icon: 'https://zeabur.com/favicon.ico',
+      icon: settings.icon || 'https://zeabur.com/favicon.ico',
       level: 'timeSensitive'
     });
 
