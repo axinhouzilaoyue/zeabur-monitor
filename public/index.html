@@ -834,7 +834,7 @@
     }
     .project-group-cost {
       font-weight: 700;
-      color: var(--blue);
+      color: var(--red);
       font-variant-numeric: tabular-nums;
     }
     .project-group-header .edit-name-input {
@@ -1384,17 +1384,17 @@
                 <tbody>
                   <tr v-for="item in usageData" :key="item.name">
                     <td style="font-weight:500;">{{ item.name }}</td>
-                    <td>${{ item.total.toFixed(4) }}</td>
-                    <td>${{ item.cpu.toFixed(4) }}</td>
-                    <td>${{ item.memory.toFixed(4) }}</td>
-                    <td>${{ item.network.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ item.total.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ item.cpu.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ item.memory.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ item.network.toFixed(4) }}</td>
                   </tr>
                   <tr style="font-weight:700; border-top: 2px solid var(--border-hover);">
                     <td>{{ t.total }}</td>
-                    <td>${{ usageTotalCost.toFixed(4) }}</td>
-                    <td>${{ usageTotalCPU.toFixed(4) }}</td>
-                    <td>${{ usageTotalMemory.toFixed(4) }}</td>
-                    <td>${{ usageTotalNetwork.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ usageTotalCost.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ usageTotalCPU.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ usageTotalMemory.toFixed(4) }}</td>
+                    <td style="color:var(--red);">${{ usageTotalNetwork.toFixed(4) }}</td>
                   </tr>
                 </tbody>
               </table>
