@@ -2008,32 +2008,44 @@
           return map[status] || status;
         },
         getServiceIcon(service) {
-          const t = (service.template || '').toLowerCase();
-          if (!t) return null;
-          const map = {
-            'node.js': 'nodedotjs', 'nodejs': 'nodedotjs', 'next.js': 'nextdotjs', 'nextjs': 'nextdotjs',
-            'nuxt.js': 'nuxtdotjs', 'nuxtjs': 'nuxtdotjs', 'astro': 'astro', 'vite': 'vite',
-            'react': 'react', 'vue': 'vuedotjs', 'angular': 'angular', 'svelte': 'svelte',
+          const name = (service.name || '').toLowerCase();
+          if (!name) return null;
+          // Zeabur service-icons repo (marketplace)
+          const zeaburIcons = {
+            'redis': 'marketplace/redis', 'mysql': 'marketplace/mysql',
+            'mongodb': 'marketplace/mongodb', 'postgresql': 'marketplace/postgresql',
+            'postgres': 'marketplace/postgresql', 'mariadb': 'marketplace/mariadb',
+            'rabbitmq': 'marketplace/rabbitmq', 'minio': 'marketplace/minio',
+            'ghost': 'marketplace/ghost', 'umami': 'marketplace/umami',
+          };
+          for (const [key, path] of Object.entries(zeaburIcons)) {
+            if (name.includes(key)) return 'https://raw.githubusercontent.com/zeabur/service-icons/main/' + path + '.svg';
+          }
+          // Simple Icons CDN fallback
+          const simpleIcons = {
+            'node': 'nodedotjs', 'next': 'nextdotjs', 'nuxt': 'nuxtdotjs',
+            'astro': 'astro', 'vite': 'vite', 'react': 'react',
+            'vue': 'vuedotjs', 'angular': 'angular', 'svelte': 'svelte',
             'python': 'python', 'flask': 'flask', 'django': 'django', 'fastapi': 'fastapi',
-            'go': 'go', 'golang': 'go', 'gin': 'gin',
-            'java': 'openjdk', 'spring-boot': 'springboot', 'spring': 'spring',
+            'golang': 'go', 'gin': 'gin',
+            'java': 'openjdk', 'spring': 'spring',
             'rust': 'rust', 'ruby': 'ruby', 'rails': 'rubyonrails',
             'php': 'php', 'laravel': 'laravel',
-            'dotnet': 'dotnet', '.net': 'dotnet', 'csharp': 'csharp',
-            'bun': 'bun', 'deno': 'deno', 'elixir': 'elixir', 'swift': 'swift', 'kotlin': 'kotlin',
-            'mysql': 'mysql', 'postgresql': 'postgresql', 'postgres': 'postgresql',
-            'redis': 'redis', 'mongodb': 'mongodb', 'mariadb': 'mariadb',
-            'sqlite': 'sqlite', 'clickhouse': 'clickhouse',
-            'wordpress': 'wordpress', 'ghost': 'ghost', 'strapi': 'strapi',
+            'dotnet': 'dotnet', '.net': 'dotnet',
+            'bun': 'bun', 'deno': 'deno', 'elixir': 'elixir',
+            'swift': 'swift', 'kotlin': 'kotlin',
+            'clickhouse': 'clickhouse', 'sqlite': 'sqlite',
+            'wordpress': 'wordpress', 'strapi': 'strapi',
             'nginx': 'nginx', 'caddy': 'caddy', 'grafana': 'grafana',
-            'minio': 'minio', 'rabbitmq': 'rabbitmq', 'kafka': 'apachekafka',
-            'docker': 'docker', 'prometheus': 'prometheus',
+            'kafka': 'apachekafka', 'docker': 'docker', 'prometheus': 'prometheus',
             'hono': 'hono', 'express': 'express', 'nestjs': 'nestjs',
-            'gatsby': 'gatsby', 'hugo': 'hugo', 'hexo': 'hexo', 'jekyll': 'jekyll',
-            'umami': 'umami', 'uptime-kuma': 'uptimekuma',
+            'gatsby': 'gatsby', 'hugo': 'hugo', 'hexo': 'hexo',
+            'uptime-kuma': 'uptimekuma', 'n8n': 'n8n',
           };
-          const slug = map[t] || t;
-          return 'https://cdn.simpleicons.org/' + slug;
+          for (const [key, slug] of Object.entries(simpleIcons)) {
+            if (name.includes(key)) return 'https://cdn.simpleicons.org/' + slug;
+          }
+          return null;
         },
         toggleTheme() {
           this.theme = this.theme === 'dark' ? 'light' : 'dark';
