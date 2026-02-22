@@ -2017,6 +2017,7 @@
         async fetchData() {
           this.loading = true;
           try {
+            await this.loadManagedAccounts();
             const allAccounts = [...this.envAccounts, ...this.managedAccounts];
             if (allAccounts.length > 0) {
               const accountsPayload = allAccounts.map(acc => ({ ...acc, balance: null }));
