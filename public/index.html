@@ -880,14 +880,14 @@
     /* Settings form */
     .settings-section { margin-bottom: 24px; }
     .settings-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    .settings-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
-    .settings-row label { font-size: 13px; font-weight: 500; color: var(--text-secondary); min-width: 120px; flex-shrink: 0; }
-    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+    .settings-row { display: flex; gap: 12px; margin-bottom: 14px; align-items: center; }
+    .settings-row > label:first-child { font-size: 13px; font-weight: 500; color: var(--text-secondary); min-width: 120px; flex-shrink: 0; }
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; min-width: 44px; max-width: 44px; }
     .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .toggle-slider { position: absolute; inset: 0; background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 11px; cursor: pointer; transition: all 0.25s ease; }
-    .toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: var(--text-muted); border-radius: 50%; transition: all 0.25s ease; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--bg-elevated); border: 1.5px solid var(--border-hover); border-radius: 12px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 2px; top: 50%; transform: translateY(-50%); background: var(--text-muted); border-radius: 50%; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     .toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
-    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
+    .toggle input:checked + .toggle-slider::before { transform: translateY(-50%) translateX(20px); background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
 
     /* Domain inline management */
     .domain-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; transition: color 0.15s; }
@@ -1582,11 +1582,11 @@
             <div v-if="settingsSuccess" class="alert alert-success">{{ settingsSuccess }}</div>
             <div style="display:flex; gap:8px;">
               <button class="btn btn-primary" style="flex:1;" @click="saveBarkSettings">{{ t.save }}</button>
-              <button class="btn" @click="testBark" :disabled="barkTesting">{{ barkTesting ? t.sending : t.test }}</button>
+              <button class="btn" style="flex:1;" @click="testBark" :disabled="barkTesting">{{ barkTesting ? t.sending : t.test }}</button>
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn" style="width:100%; margin-top:8px;" @click="showSettingsModal = false">{{ t.close }}</button>
+            <button class="btn" style="width:100%;" @click="showSettingsModal = false">{{ t.close }}</button>
           </div>
         </div>
       </div>
